@@ -34,7 +34,7 @@ class MetSource:
         self.max_probe = max_probe
 
     def fetch_artwork(self, date: str, seen: set[str] = frozenset(), public_only: bool = False) -> Artwork:
-        candidates = self._candidates(date)
+        candidates = self._candidates()
         ordered = seeding.shuffled(
             seeding.seed_for(f"{date}:artwork"),
             [c for c in candidates if str(c) not in seen] or candidates,
@@ -46,16 +46,25 @@ class MetSource:
         raise MetSourceError("no public-domain artwork with an image found")
 
     # ---- helpers --------------------------------------------------------
-    def _candidates(self, date: str) -> list[int]:
-        dept = seeding.shuffled(seeding.seed_for(f"{date}:dept"), list(self.departments))[0]
-        url = (
-            f"{MET_BASE}/search?hasImages=true&isHighlight=true"
-            f"&departmentId={dept}&q={urllib.parse.quote('painting')}"
-        )
-        data = self.http.get_json(url)
-        ids = data.get("objectIDs") or []
+    def _candidates(self) -> list[int]:
+        # Span every configured department and union their highlights, so a
+        # date can surface a painting, photograph, or drawing — rather than
+        # being locked to whichever single department a seed happened to pick.
+        # `q=a` is a neutral near-universal keyword (the Met search requires
+        # one); `q=painting` biased the pool toward European paintings.
+        ids: list[int] = []
+        for dept in self.departments:
+            url = (
+                f"{MET_BASE}/search?hasImages=true&isHighlight=true"
+                f"&departmentId={dept}&q={urllib.parse.quote('a')}"
+            )
+            try:
+                data = self.http.get_json(url)
+            except Exception:  # noqa: BLE001 — skip a failing department, keep the rest
+                continue
+            ids.extend(data.get("objectIDs") or [])
         if not ids:
-            raise MetSourceError(f"no candidates for department {dept}")
+            raise MetSourceError("no candidates found across departments")
         return ids
 
     def _to_artwork(self, obj: dict) -> Artwork:
