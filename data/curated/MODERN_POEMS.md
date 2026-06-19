@@ -1,10 +1,11 @@
 # Curated modern poetry
 
-The classic, public-domain poems live in `poems.json` with `"public_ok": true`.
-Contemporary poems are under copyright. For your **private, single-user** ritual
-you can add them here, but they must stay out of any public build.
+`poems.json` holds classic, public-domain poems (`"public_ok": true`) used as the
+offline fallback. Contemporary poems are under copyright; they live in
+`poems_modern.json` (`"public_ok": false`) and are surfaced as a first-class
+source in the daily rotation. They must stay out of any public build.
 
-To add a modern poem, append an entry to `poems.json` with `"public_ok": false`:
+To add a modern poem, append an entry to `poems_modern.json`:
 
 ```json
 {

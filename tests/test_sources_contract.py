@@ -5,8 +5,17 @@ suite stays fast and offline-deterministic. The deterministic core logic is
 covered separately in test_picker / test_store / test_builder.
 """
 
+import json
+
+import pytest
+
+from everydaypassion.models import Artwork
+from everydaypassion.sources.artic import ArticSource
+from everydaypassion.sources.cleveland import ClevelandSource
+from everydaypassion.sources.curated import CuratedModernArt
 from everydaypassion.sources.met import MetSource
 from everydaypassion.sources.poetry import PoetrySource
+from everydaypassion.sources.pool import SourcePool
 
 
 class FakeHttp:
@@ -115,3 +124,74 @@ def test_poetry_taste_gate_rejects_and_redraws():
     gate = lambda lines: lines != ["bad"]
     poem = PoetrySource(http=http, authors=["A Poet"], taste_gate=gate).fetch_poem("2026-06-19")
     assert poem.title == "Worthy"
+
+
+# ---- new museum sources, pool, and curated modern art -------------------
+def test_artic_prefers_named_public_domain_work():
+    http = FakeHttp({
+        "api.artic.edu": {
+            "config": {"iiif_url": "https://www.artic.edu/iiif/2"},
+            "data": [
+                {"id": 1, "title": "Anonymous Bowl", "artist_title": None, "image_id": "a"},
+                {"id": 2, "title": "The Bedroom", "artist_title": "Vincent van Gogh",
+                 "date_display": "1889", "medium_display": "Oil", "image_id": "b"},
+            ],
+        },
+    })
+    art = ArticSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.artist == "Vincent van Gogh"
+    assert art.ref_id == "artic-2"
+    assert art.source == "Art Institute of Chicago"
+
+
+def test_cleveland_extracts_artist_name_and_image():
+    http = FakeHttp({
+        "clevelandart.org": {
+            "data": [
+                {"id": 9, "title": "Stag at Sharkey's",
+                 "creators": [{"description": "George Bellows (American, 1882–1925)"}],
+                 "creation_date": "1909", "technique": "Oil on canvas",
+                 "images": {"web": {"url": "https://x/img.jpg"}}},
+            ],
+        },
+    })
+    art = ClevelandSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.artist == "George Bellows"
+    assert art.ref_id == "cma-9"
+    assert art.license == "CC0"
+
+
+def test_source_pool_rotates_and_falls_through():
+    class Down:
+        def fetch_artwork(self, date, seen, public_only):
+            raise RuntimeError("source down")
+
+    class Up:
+        def fetch_artwork(self, date, seen, public_only):
+            return Artwork("Up", "CC0", True, "Title", "Artist", "", "", "up-1")
+
+    pool = SourcePool([Down(), Up()], "art")
+    art = pool.fetch_artwork("2026-06-19", set(), False)
+    assert art.title == "Title"
+
+
+def test_curated_modern_art_empty_falls_through(tmp_path):
+    src = CuratedModernArt(tmp_path, tmp_path)  # no artworks_modern.json
+    with pytest.raises(LookupError):
+        src.fetch_artwork("2026-06-19")
+
+
+def test_curated_modern_art_picks_and_resolves_image(tmp_path):
+    (tmp_path / "artworks_modern.json").write_text(json.dumps([
+        {"source": "curated", "license": "© the artist", "public_ok": False,
+         "title": "Angelus Novus", "artist": "Paul Klee", "date": "1920",
+         "medium": "Oil transfer", "ref_id": "klee-angelus", "image_path": "klee.jpg"},
+    ]))
+    images = tmp_path / "images"
+    images.mkdir()
+    art = CuratedModernArt(tmp_path, images).fetch_artwork("2026-06-19")
+    assert art.artist == "Paul Klee"
+    assert art.image_path == str(images / "klee.jpg")
+    # a public build excludes the copyrighted modern piece
+    with pytest.raises(LookupError):
+        CuratedModernArt(tmp_path, images).fetch_artwork("2026-06-19", public_only=True)

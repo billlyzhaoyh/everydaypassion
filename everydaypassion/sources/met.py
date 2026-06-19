@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .. import seeding
 from ..models import Artwork
+from ._common import cache_image
 from .http import Http
 
 MET_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
@@ -75,13 +76,11 @@ class MetSource:
 
     def _to_artwork(self, obj: dict) -> Artwork:
         obj_id = obj["objectID"]
-        image_path = None
-        try:
-            small = obj.get("primaryImageSmall") or obj["primaryImage"]
-            ext = Path(urllib.parse.urlparse(small).path).suffix or ".jpg"
-            image_path = str(self.http.download(small, self.image_dir / f"met-{obj_id}{ext}"))
-        except Exception:  # noqa: BLE001 — a missing image just means no local cache
-            image_path = obj.get("primaryImageSmall") or obj.get("primaryImage")
+        image_path = cache_image(
+            self.http, self.image_dir,
+            obj.get("primaryImageSmall") or obj.get("primaryImage"),
+            f"met-{obj_id}",
+        )
         return Artwork(
             source="The Met",
             license="CC0",
