@@ -36,7 +36,6 @@ class DayBuilder:
         self,
         store: PackageStore,
         library: CuratedLibrary,
-        picker=None,
         met: ArtworkSource | None = None,
         poetry: PoemSource | None = None,
         wiki: Facts | None = None,
@@ -65,31 +64,31 @@ class DayBuilder:
 
     def build(self, date: str) -> DayPackage:
         seen = self.store.seen_ids()
-        artwork = self._artwork(date, seen)
-        poem = self._poem(date, seen)
+        artwork = self._fetch(
+            date, seen, "artwork",
+            self.met.fetch_artwork if self.met else None,
+            self.library.get_artwork,
+        )
+        poem = self._fetch(
+            date, seen, "poem",
+            self.poetry.fetch_poem if self.poetry else None,
+            self.library.get_poem,
+        )
         reflection = self._reflection(artwork)
         return DayPackage(date=date, artwork=artwork, poem=poem, reflection=reflection, frozen=True)
 
     # ---- content with retry → fallback ----------------------------------
-    def _artwork(self, date: str, seen: set[str]) -> Artwork:
-        if self.met is not None:
+    def _fetch(self, date: str, seen: set[str], kind: str, live, fallback):
+        """Fetch from the live source (with retries), falling back to the
+        curated library if it's absent or fails."""
+        if live is not None:
             try:
                 return self._retry(
-                    lambda: self.met.fetch_artwork(date=date, seen=seen, public_only=self.public_only)
+                    lambda: live(date=date, seen=seen, public_only=self.public_only)
                 )
             except Exception:
                 pass
-        return self.library.get_artwork(f"{date}:artwork", public_only=self.public_only)
-
-    def _poem(self, date: str, seen: set[str]) -> Poem:
-        if self.poetry is not None:
-            try:
-                return self._retry(
-                    lambda: self.poetry.fetch_poem(date=date, seen=seen, public_only=self.public_only)
-                )
-            except Exception:
-                pass
-        return self.library.get_poem(f"{date}:poem", public_only=self.public_only)
+        return fallback(f"{date}:{kind}", public_only=self.public_only)
 
     def _reflection(self, artwork: Artwork) -> Reflection | None:
         if self.wiki is None or self.reflection is None:

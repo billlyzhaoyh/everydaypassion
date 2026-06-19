@@ -45,5 +45,4 @@ class CuratedLibrary:
     def _pick(key: str, pool: list, err: str):
         if not pool:
             raise LookupError(err)
-        idx = shuffled(seed_for(key), list(range(len(pool))))[0]
-        return pool[idx]
+        return shuffled(seed_for(key), pool)[0]
