@@ -16,6 +16,8 @@ from everydaypassion.sources.curated import CuratedModernArt
 from everydaypassion.sources.met import MetSource
 from everydaypassion.sources.poetry import PoetrySource
 from everydaypassion.sources.pool import SourcePool
+from everydaypassion.sources.smk import SmkSource
+from everydaypassion.sources.vam import VamSource
 
 
 class FakeHttp:
@@ -159,6 +161,52 @@ def test_cleveland_extracts_artist_name_and_image():
     assert art.artist == "George Bellows"
     assert art.ref_id == "cma-9"
     assert art.license == "CC0"
+
+
+def test_smk_parses_cc0_record_with_image():
+    http = FakeHttp({
+        "api.smk.dk": {
+            "items": [
+                {"object_number": "KKS1", "titles": [{"title": "Overraskelsen"}],
+                 "artist": ["Ugo da Carpi"], "production_date": [{"period": "1510-1520"}],
+                 "techniques": ["Træsnit"],
+                 "image_thumbnail": "https://iip-thumb.smk.dk/x/full/!1024,/0/default.jpg"},
+            ],
+        },
+    })
+    art = SmkSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.title == "Overraskelsen"
+    assert art.artist == "Ugo da Carpi"
+    assert art.ref_id == "smk-KKS1"
+    assert art.license == "CC0"
+    assert art.public_ok is True
+
+
+def test_vam_builds_iiif_image_and_is_personal_use():
+    http = FakeHttp({
+        "api.vam.ac.uk": {
+            "records": [
+                {"systemNumber": "O429002", "_primaryTitle": "Krishna painting Radha",
+                 "_primaryMaker": {"name": "George Keyt"}, "_primaryDate": "1932",
+                 "objectType": "Painting",
+                 "_images": {"_iiif_image_base_url": "https://framemark.vam.ac.uk/collections/2006AM2326/"}},
+            ],
+        },
+    })
+    art = VamSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.artist == "George Keyt"
+    assert art.ref_id == "va-O429002"
+    assert art.public_ok is False
+    # cache_image fell back to the constructed IIIF URL (FakeHttp.download echoes dest,
+    # so just assert the source asked for an image at all)
+    assert art.image_path is not None
+
+
+def test_vam_skips_itself_in_a_public_build():
+    # No HTTP call should happen — it bails before fetching.
+    src = VamSource("/tmp/edp-test", http=FakeHttp({}))
+    with pytest.raises(Exception):
+        src.fetch_artwork("2026-06-19", public_only=True)
 
 
 def test_source_pool_rotates_and_falls_through():

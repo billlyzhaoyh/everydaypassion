@@ -57,6 +57,8 @@ def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
         from .sources.poetry import PoetrySource
         from .sources.pool import SourcePool
         from .sources.reflection import ReflectionWriter
+        from .sources.smk import SmkSource
+        from .sources.vam import VamSource
         from .sources.wikipedia import WikipediaClient
 
         images = images_dir()
@@ -72,6 +74,8 @@ def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
                 MetSource(images),
                 ArticSource(images),
                 ClevelandSource(images),
+                SmkSource(images),
+                VamSource(images),  # personal-use only; skips itself in a public build
                 CuratedModernArt(curated, images),
             ],
             "art",

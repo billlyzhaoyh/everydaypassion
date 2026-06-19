@@ -62,7 +62,7 @@ now with `everydaypassion open --force`.
 | `store` | dated packages (freeze-once), seen-IDs, favorites |
 | `library` | curated local corpus + offline fallback |
 | `builder` | orchestration: generate-if-missing, retry → fallback |
-| `sources/` | The Met, PoetryDB, Wikipedia, Claude reflections |
+| `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, V&A) + PoetryDB, Wikipedia, Claude reflections |
 | `web/` | FastAPI server (today / archive / favorites), idle self-shutdown |
 
 ## Content & licensing
