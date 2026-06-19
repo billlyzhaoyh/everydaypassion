@@ -25,10 +25,12 @@ class PoemSource(Protocol):
 
 class Facts(Protocol):
     def facts_for(self, artwork: Artwork) -> dict: ...
+    def facts_for_poet(self, poem: Poem) -> dict: ...
 
 
 class ReflectionSource(Protocol):
     def write(self, artwork: Artwork, facts: dict) -> str: ...
+    def write_poem(self, poem: Poem, facts: dict) -> str: ...
 
 
 class DayBuilder:
@@ -74,8 +76,22 @@ class DayBuilder:
             self.poetry.fetch_poem if self.poetry else None,
             self.library.get_poem,
         )
-        reflection = self._reflection(artwork)
-        return DayPackage(date=date, artwork=artwork, poem=poem, reflection=reflection, frozen=True)
+        return DayPackage(
+            date=date,
+            artwork=artwork,
+            poem=poem,
+            artwork_reflection=self._reflect(
+                artwork.source,
+                lambda: self.wiki.facts_for(artwork),
+                lambda facts: self.reflection.write(artwork, facts),
+            ),
+            poem_reflection=self._reflect(
+                poem.source,
+                lambda: self.wiki.facts_for_poet(poem),
+                lambda facts: self.reflection.write_poem(poem, facts),
+            ),
+            frozen=True,
+        )
 
     # ---- content with retry → fallback ----------------------------------
     def _fetch(self, date: str, seen: set[str], kind: str, live, fallback):
@@ -90,13 +106,15 @@ class DayBuilder:
                 pass
         return fallback(f"{date}:{kind}", public_only=self.public_only)
 
-    def _reflection(self, artwork: Artwork) -> Reflection | None:
+    def _reflect(self, source: str, fetch_facts, write) -> Reflection | None:
+        """Ground a reflection in real facts, returning None if the facts or the
+        writer are unavailable — the reveal simply doesn't appear that day."""
         if self.wiki is None or self.reflection is None:
             return None
         try:
-            facts = self._retry(lambda: self.wiki.facts_for(artwork))
-            text = self._retry(lambda: self.reflection.write(artwork, facts))
-            grounded = ["The Met", "Wikipedia"] if facts.get("summary") else ["The Met"]
+            facts = self._retry(fetch_facts)
+            text = self._retry(lambda: write(facts))
+            grounded = [source] + (["Wikipedia"] if facts.get("summary") else [])
             return Reflection(text=text, grounded_in=grounded)
         except Exception:
             return None

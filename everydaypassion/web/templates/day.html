@@ -1,5 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ pkg.artwork.title }} · everydaypassion{% endblock %}
+
+{% macro reveal(r) %}
+{% if r and r.text %}
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    {% for para in r.text.split("\n\n") %}
+      {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
+    {% endfor %}
+    {% if r.grounded_in %}
+      <p class="src">Grounded in {{ r.grounded_in | join(" & ") }} · written for this morning</p>
+    {% endif %}
+  </div>
+</details>
+{% endif %}
+{% endmacro %}
+
 {% block content %}
 <div class="frame">
   {% if image_url %}
@@ -17,6 +34,8 @@
   </p>
 </div>
 
+{{ reveal(pkg.artwork_reflection) }}
+
 <div class="rule"></div>
 
 <div class="poem">
@@ -26,19 +45,7 @@
   <p class="by">{{ pkg.poem.author }}{% if pkg.poem.year %} · {{ pkg.poem.year }}{% endif %} · {{ pkg.poem.license }}</p>
 </div>
 
-{% if pkg.reflection and pkg.reflection.text %}
-<details>
-  <summary><span class="mark">✦</span> Read about this</summary>
-  <div class="reflection-body">
-    {% for para in pkg.reflection.text.split("\n\n") %}
-      {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
-    {% endfor %}
-    {% if pkg.reflection.grounded_in %}
-      <p class="src">Grounded in {{ pkg.reflection.grounded_in | join(" & ") }} · written for this morning</p>
-    {% endif %}
-  </div>
-</details>
-{% endif %}
+{{ reveal(pkg.poem_reflection) }}
 
 <div class="chrome">
   <span>{{ pretty }}</span>

@@ -7,7 +7,8 @@ def _pkg(date="2026-06-19", title="Wheat Field"):
         date=date,
         artwork=Artwork("The Met", "CC0", True, title, "Van Gogh", "1889", "Oil", "ref-1"),
         poem=Poem("PoetryDB", "Public domain", True, "Dust of Snow", "Frost", ["a", "b"]),
-        reflection=Reflection("A grounded note.", ["The Met", "Wikipedia"]),
+        artwork_reflection=Reflection("A grounded note.", ["The Met", "Wikipedia"]),
+        poem_reflection=Reflection("A note on the poem.", ["PoetryDB", "Wikipedia"]),
     )
 
 
@@ -17,7 +18,8 @@ def test_write_then_read_roundtrips(tmp_path):
     got = store.read("2026-06-19")
     assert got.artwork.title == "Wheat Field"
     assert got.poem.author == "Frost"
-    assert got.reflection.text == "A grounded note."
+    assert got.artwork_reflection.text == "A grounded note."
+    assert got.poem_reflection.text == "A note on the poem."
 
 
 def test_a_built_date_is_frozen(tmp_path):

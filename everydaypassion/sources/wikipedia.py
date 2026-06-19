@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import urllib.parse
 
-from ..models import Artwork
+from ..models import Artwork, Poem
 from .http import Http
 
 WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/"
@@ -20,7 +20,13 @@ class WikipediaClient:
         self.http = http or Http()
 
     def facts_for(self, artwork: Artwork) -> dict:
-        for term in (artwork.artist, artwork.title):
+        return self._lookup(artwork.artist, artwork.title)
+
+    def facts_for_poet(self, poem: Poem) -> dict:
+        return self._lookup(poem.author)
+
+    def _lookup(self, *terms: str) -> dict:
+        for term in terms:
             if not term or term == "Unknown":
                 continue
             try:

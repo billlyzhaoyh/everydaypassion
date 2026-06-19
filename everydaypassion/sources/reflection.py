@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-from ..models import Artwork
+from ..models import Artwork, Poem
 
 DEFAULT_MODEL = os.environ.get("EVERYDAYPASSION_MODEL", "claude-opus-4-8")
 
@@ -23,6 +23,15 @@ _REFLECTION_SYSTEM = (
     "faithful to the facts provided — never invent biography, dates, or events. If "
     "a fact isn't given, don't assert it. Output only the reflection prose, with no "
     "preamble, title, or sign-off."
+)
+
+_POEM_SYSTEM = (
+    "You write short morning reflections for a personal art-and-poetry ritual. "
+    "Given a poem and real facts about its poet, write 2-3 short paragraphs "
+    "(about 120 words) that are warm, grounded, and contemplative — illuminating "
+    "the poem itself and, where the facts support it, the poet behind it. Stay "
+    "strictly faithful to the facts provided — never invent biography. Output only "
+    "the reflection prose, with no preamble, title, or sign-off."
 )
 
 _TASTE_SYSTEM = (
@@ -58,6 +67,21 @@ class ReflectionWriter:
             max_tokens=1024,
             output_config={"effort": "low"},
             system=_REFLECTION_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return self._text(resp)
+
+    def write_poem(self, poem: Poem, facts: dict) -> str:
+        summary = (facts or {}).get("summary", "").strip()
+        details = [f"Poem: {poem.title}", f"Poet: {poem.author}", "", "\n".join(poem.lines)]
+        if summary:
+            details.append(f"\nAbout the poet (from Wikipedia):\n{summary}")
+        prompt = "Write the reflection from this poem and these facts:\n\n" + "\n".join(details)
+        resp = self._messages().create(
+            model=self.model,
+            max_tokens=1024,
+            output_config={"effort": "low"},
+            system=_POEM_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )
         return self._text(resp)

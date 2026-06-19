@@ -33,10 +33,16 @@ class FakeWiki:
     def facts_for(self, artwork):
         return {"term": artwork.artist, "summary": "Some real facts."}
 
+    def facts_for_poet(self, poem):
+        return {"term": poem.author, "summary": "Some poet facts."}
+
 
 class FakeReflection:
     def write(self, artwork, facts):
         return f"A reflection on {artwork.title}."
+
+    def write_poem(self, poem, facts):
+        return f"A reflection on {poem.title}."
 
 
 def _library(tmp_path):
@@ -62,8 +68,10 @@ def test_happy_path_assembles_from_live_sources(tmp_path):
     pkg = builder.ensure("2026-06-19")
     assert pkg.artwork.title == "Live Artwork"
     assert pkg.poem.title == "Live Poem"
-    assert pkg.reflection.text == "A reflection on Live Artwork."
-    assert pkg.reflection.grounded_in == ["The Met", "Wikipedia"]
+    assert pkg.artwork_reflection.text == "A reflection on Live Artwork."
+    assert pkg.artwork_reflection.grounded_in == ["The Met", "Wikipedia"]
+    assert pkg.poem_reflection.text == "A reflection on Live Poem."
+    assert pkg.poem_reflection.grounded_in == ["PoetryDB", "Wikipedia"]
 
 
 # ---- fallback policy -----------------------------------------------------
@@ -82,7 +90,9 @@ def test_poem_falls_back_to_library_when_poetry_fails(tmp_path):
 
 def test_reflection_is_optional_when_no_writer(tmp_path):
     builder, _ = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry())
-    assert builder.ensure("2026-06-19").reflection is None
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.artwork_reflection is None
+    assert pkg.poem_reflection is None
 
 
 def test_fully_offline_still_builds_a_morning(tmp_path):

@@ -49,7 +49,8 @@ class DayPackage:
     date: str
     artwork: Artwork
     poem: Poem
-    reflection: Reflection | None = None
+    artwork_reflection: Reflection | None = None
+    poem_reflection: Reflection | None = None
     frozen: bool = True
 
     def to_dict(self) -> dict:
@@ -57,11 +58,16 @@ class DayPackage:
 
     @staticmethod
     def from_dict(d: dict) -> "DayPackage":
-        reflection = d.get("reflection")
+        def refl(key):
+            v = d.get(key)
+            return Reflection(**v) if v else None
+
         return DayPackage(
             date=d["date"],
             artwork=Artwork(**d["artwork"]),
             poem=Poem(**d["poem"]),
-            reflection=Reflection(**reflection) if reflection else None,
+            # `reflection` is the old single-field name — read it as the artwork's.
+            artwork_reflection=refl("artwork_reflection") or refl("reflection"),
+            poem_reflection=refl("poem_reflection"),
             frozen=d.get("frozen", True),
         )
