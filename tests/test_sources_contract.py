@@ -46,6 +46,37 @@ def test_met_picks_a_public_domain_artwork_with_image():
     assert art.ref_id == "1002"
 
 
+def test_met_prefers_a_named_artist_over_unknown():
+    # 1001 is public-domain with an image but has no artist; 1002 is named.
+    # The picker should skip past the unnamed one to the named work.
+    http = FakeHttp({
+        "/search": {"objectIDs": [1001, 1002]},
+        "/objects/1001": {
+            "objectID": 1001, "isPublicDomain": True, "primaryImage": "u",
+            "primaryImageSmall": "u", "title": "Anonymous Vase", "artistDisplayName": "",
+        },
+        "/objects/1002": {
+            "objectID": 1002, "isPublicDomain": True, "primaryImage": "u",
+            "primaryImageSmall": "u", "title": "Portrait", "artistDisplayName": "A Painter",
+        },
+    })
+    art = MetSource(image_dir="/tmp/edp-test", http=http, max_probe=10).fetch_artwork("2026-06-19")
+    assert art.artist == "A Painter"
+
+
+def test_met_falls_back_to_unnamed_when_no_named_artist():
+    http = FakeHttp({
+        "/search": {"objectIDs": [1001]},
+        "/objects/1001": {
+            "objectID": 1001, "isPublicDomain": True, "primaryImage": "u",
+            "primaryImageSmall": "u", "title": "Anonymous Vase", "artistDisplayName": "",
+        },
+    })
+    art = MetSource(image_dir="/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.title == "Anonymous Vase"
+    assert art.artist == "Unknown"
+
+
 def test_met_is_deterministic_for_a_date():
     payload = {
         "/search": {"objectIDs": [1, 2, 3, 4, 5]},
