@@ -21,6 +21,13 @@ class Artwork:
     ref_id: str
     image_path: str | None = None
     artist_url: str | None = None
+    # The museum's own publishable note about the work. When present and substantial,
+    # it's shown verbatim (attributed) and the LLM is skipped entirely.
+    curator_note: str = ""
+    # Source-authored grounding facts (catalogue label, culture, credit line, …)
+    # keyed by a human label. Used only as input to the LLM fallback when there's
+    # no curator_note; museums that expose metadata populate this.
+    details: dict = field(default_factory=dict)
 
 
 @dataclass

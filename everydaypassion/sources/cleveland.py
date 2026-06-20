@@ -9,10 +9,17 @@ from pathlib import Path
 
 from .. import seeding
 from ..models import Artwork
-from ._common import cache_image, pick_record
+from ._common import cache_image, clean_text, details_from, pick_record
 from .http import Http
 
 SEARCH = "https://openaccess-api.clevelandart.org/api/artworks/?cc0=1&has_image=1&limit=100&skip={skip}"
+
+# Cleveland publishes curator text + a "did you know" note — the best grounding.
+_DETAILS = {
+    "Curatorial description": "description",
+    "Did you know": "did_you_know",
+    "Catalogue label": "tombstone",
+}
 
 
 class ClevelandSourceError(RuntimeError):
@@ -41,6 +48,8 @@ class ClevelandSource:
         if chosen is None:
             raise ClevelandSourceError("no CC0 artwork found")
         image = ((chosen.get("images") or {}).get("web") or {}).get("url")
+        desc, dyk = clean_text(chosen.get("description")), clean_text(chosen.get("did_you_know"))
+        note = f"{desc}\n\nDid you know? {dyk}" if desc and dyk else desc
         return Artwork(
             source="Cleveland Museum of Art",
             license="CC0",
@@ -51,4 +60,6 @@ class ClevelandSource:
             medium=chosen.get("technique") or "",
             ref_id=f"cma-{chosen['id']}",
             image_path=cache_image(self.http, self.image_dir, image, f"cma-{chosen['id']}"),
+            curator_note=note,
+            details=details_from(chosen, _DETAILS),
         )

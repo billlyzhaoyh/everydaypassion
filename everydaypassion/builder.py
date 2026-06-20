@@ -14,6 +14,10 @@ from .library import CuratedLibrary
 from .models import Artwork, DayPackage, Poem, Reflection
 from .store import PackageStore
 
+# A curator note this long or longer stands on its own — show it verbatim and skip
+# the LLM. Shorter than this, the writer composes from facts instead.
+MIN_CURATOR_NOTE = 120
+
 
 class ArtworkSource(Protocol):
     def fetch_artwork(self, date: str, seen: set[str], public_only: bool) -> Artwork: ...
@@ -80,17 +84,25 @@ class DayBuilder:
             date=date,
             artwork=artwork,
             poem=poem,
-            artwork_reflection=self._reflect(
-                artwork.source,
-                lambda: self.wiki.facts_for(artwork),
-                lambda facts: self.reflection.write(artwork, facts),
-            ),
+            artwork_reflection=self._artwork_reflection(artwork),
             poem_reflection=self._reflect(
                 poem.source,
                 lambda: self.wiki.facts_for_poet(poem),
                 lambda facts: self.reflection.write_poem(poem, facts),
             ),
             frozen=True,
+        )
+
+    def _artwork_reflection(self, artwork: Artwork) -> Reflection | None:
+        """Prefer the museum's own note when it's substantial — shown verbatim,
+        no LLM, works even offline. Otherwise the writer composes from facts."""
+        note = (artwork.curator_note or "").strip()
+        if len(note) >= MIN_CURATOR_NOTE:
+            return Reflection(text=note, grounded_in=[artwork.source])
+        return self._reflect(
+            artwork.source,
+            lambda: self.wiki.facts_for(artwork),
+            lambda facts: self.reflection.write(artwork, facts),
         )
 
     # ---- content with retry → fallback ----------------------------------

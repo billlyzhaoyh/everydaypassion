@@ -13,13 +13,26 @@ from pathlib import Path
 
 from .. import seeding
 from ..models import Artwork
-from ._common import cache_image
+from ._common import cache_image, details_from
 from .http import Http
 
 MET_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
 
 # European Paintings, Drawings & Prints, Photographs, Asian Art, The American Wing.
 DEFAULT_DEPARTMENTS = (11, 9, 19, 6, 1)
+
+# The Met API carries no curatorial prose — ground on its catalogue metadata instead.
+_DETAILS = {
+    "Object type": "objectName",
+    "Culture": "culture",
+    "Period": "period",
+    "Dynasty": "dynasty",
+    "Classification": "classification",
+    "Artist bio": "artistDisplayBio",
+    "Dimensions": "dimensions",
+    "Credit line": "creditLine",
+    "Department": "department",
+}
 
 
 class MetSourceError(RuntimeError):
@@ -92,4 +105,5 @@ class MetSource:
             ref_id=str(obj_id),
             image_path=image_path,
             artist_url=obj.get("artistWikidata_URL") or obj.get("objectWikidata_URL") or None,
+            details=details_from(obj, _DETAILS),
         )

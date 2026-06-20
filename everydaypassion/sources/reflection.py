@@ -19,12 +19,14 @@ DEFAULT_MODEL = os.environ.get("EVERYDAYPASSION_MODEL", "claude-opus-4-8")
 
 _REFLECTION_SYSTEM = (
     "You write a short, factual background note about an artwork — the kind of "
-    "thing you'd read on excellent museum wall text or in a catalogue entry. Given "
-    "real facts about the work and its artist, write 2-3 short paragraphs (about "
-    "120-150 words) of concrete background: who the artist was and why they matter, "
-    "when and where the work was made, the technique or materials, and the "
-    "historical or cultural context. Lead with the most genuinely interesting or "
-    "surprising fact. "
+    "thing you'd read on excellent museum wall text or in a catalogue entry. Write "
+    "2-3 short paragraphs (about 120-150 words) of concrete background: who the "
+    "artist was and why they matter, when and where the work was made, the technique "
+    "or materials, and the historical or cultural context. Lead with the most "
+    "genuinely interesting or surprising fact. "
+    "When curatorial notes or a catalogue description are provided, treat them as "
+    "the primary, authoritative source and draw the most interesting specifics from "
+    "them (rephrased, not copied verbatim). "
     "Stay strictly faithful to the facts provided — never invent biography, dates, "
     "attributions, or events; if a fact isn't given, don't assert it, and say less "
     "rather than pad. "
@@ -73,8 +75,10 @@ class ReflectionWriter:
             f"Medium: {artwork.medium}",
             f"Source: {artwork.source}",
         ]
+        for label, value in (artwork.details or {}).items():
+            details.append(f"{label}: {value}")
         if summary:
-            details.append(f"\nBackground (from Wikipedia):\n{summary}")
+            details.append(f"\nAbout the artist (from Wikipedia):\n{summary}")
         prompt = (
             "Write the background note from these facts:\n\n" + "\n".join(details)
         )

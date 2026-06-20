@@ -2,10 +2,36 @@
 
 from __future__ import annotations
 
+import html
+import re
 import urllib.parse
 from pathlib import Path
 
 from .. import seeding
+
+_TAG = re.compile(r"<[^>]+>")
+
+
+def clean_text(value: str | None) -> str:
+    """Strip HTML tags and collapse whitespace — museum description fields often
+    carry light markup (``<em>``, ``<p>``)."""
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", html.unescape(_TAG.sub(" ", value))).strip()
+
+
+def details_from(record: dict, fields: dict) -> dict:
+    """Build a label->text map from a record, keeping only non-empty values.
+
+    ``fields`` maps an output label to the record key (or a callable taking the
+    record). Cleaned of markup so it's safe to feed to the reflection writer."""
+    out = {}
+    for label, key in fields.items():
+        value = key(record) if callable(key) else record.get(key)
+        cleaned = clean_text(value if isinstance(value, str) else value and str(value))
+        if cleaned:
+            out[label] = cleaned
+    return out
 
 
 def pick_record(date: str, records: list, seen, ref, is_named):
