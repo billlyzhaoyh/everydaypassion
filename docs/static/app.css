@@ -1,0 +1,257 @@
+:root {
+  --display: "Didot", "Bodoni 72", "Hoefler Text", Georgia, serif;
+  --serif: "Iowan Old Style", "Hoefler Text", Palatino, Georgia, serif;
+  --meta: "Avenir Next", "Helvetica Neue", system-ui, sans-serif;
+
+  /* Warm Paper (light default) */
+  --ground: #e9ddc6;
+  --mount: #efe6d3;
+  --text: #3a2c1c;
+  --soft: #5a4632;
+  --muted: #a08a68;
+  --accent: #a4582f;
+  --line: rgba(58, 44, 28, 0.18);
+  --glow: transparent;
+}
+
+/* Museum Dark when the OS is in dark mode... */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="paper"]) {
+    --ground: #15120e;
+    --mount: #0e0c09;
+    --text: #ece5d6;
+    --soft: #cabfa9;
+    --muted: #7d7259;
+    --accent: #cda95f;
+    --line: rgba(205, 169, 95, 0.22);
+    --glow: rgba(214, 184, 120, 0.16);
+  }
+}
+
+/* ...or when the reader pins a theme. */
+[data-theme="dark"] {
+  --ground: #15120e;
+  --mount: #0e0c09;
+  --text: #ece5d6;
+  --soft: #cabfa9;
+  --muted: #7d7259;
+  --accent: #cda95f;
+  --line: rgba(205, 169, 95, 0.22);
+  --glow: rgba(214, 184, 120, 0.16);
+}
+[data-theme="paper"] {
+  --ground: #e9ddc6;
+  --mount: #efe6d3;
+  --text: #3a2c1c;
+  --soft: #5a4632;
+  --muted: #a08a68;
+  --accent: #a4582f;
+  --line: rgba(58, 44, 28, 0.18);
+  --glow: transparent;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--meta);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 40px 28px 96px; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 36px;
+}
+.topbar a { color: var(--muted); text-decoration: none; }
+.topbar a:hover { color: var(--accent); }
+.topbar .links { display: flex; gap: 18px; align-items: center; }
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
+.frame {
+  position: relative;
+  border: 1px solid var(--line);
+  padding: 12px;
+  background: var(--mount);
+}
+.frame::before {
+  content: "";
+  position: absolute;
+  inset: -28% -8% auto -8%;
+  height: 70%;
+  background: radial-gradient(60% 100% at 50% 0%, var(--glow), transparent 70%);
+  pointer-events: none;
+}
+.frame img { display: block; width: 100%; height: auto; }
+.frame .placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 5 / 4;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.caption { margin-top: 20px; }
+.caption .title {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 1.7rem;
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+.caption .meta {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.rule { height: 1px; background: var(--line); margin: 32px 0; }
+
+.poem .label,
+.reflection .label {
+  font-size: 0.62rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 14px;
+}
+.poem h2 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 1.3rem;
+  margin: 0 0 16px;
+}
+.poem .verse {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  line-height: 1.95;
+  white-space: pre-line;
+  margin: 0;
+}
+.poem .by {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 18px 0 0;
+}
+
+details { margin-top: 28px; border-top: 1px solid var(--line); }
+details summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 18px 0 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  user-select: none;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary .mark { transition: transform 0.3s ease; }
+details[open] summary .mark { transform: rotate(45deg); }
+.reflection-body {
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.78;
+  color: var(--soft);
+  padding-top: 16px;
+}
+.reflection-body p { margin: 0 0 14px; }
+.reflection-body .src {
+  font-family: var(--meta);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 44px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.heart {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+}
+.heart.on { color: var(--accent); }
+
+.entries { list-style: none; padding: 0; margin: 0; }
+.entries li { border-bottom: 1px solid var(--line); }
+.entries a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 2px;
+  text-decoration: none;
+  color: var(--text);
+}
+.entries a:hover { color: var(--accent); }
+.entries .when { font-size: 0.92rem; }
+.entries .fav { color: var(--accent); }
+.page-title {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 1.9rem;
+  margin: 0 0 28px;
+}
+.empty { color: var(--muted); font-size: 0.92rem; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  details summary .mark { transition: none; }
+}
+
+/* Phones: tighter margins, let the top bar wrap rather than crush. */
+@media (max-width: 480px) {
+  .wrap { padding: 26px 18px 72px; }
+  .topbar { flex-wrap: wrap; gap: 10px 16px; margin-bottom: 28px; }
+  .caption .title { font-size: 1.45rem; }
+  .poem .verse { font-size: 1.02rem; line-height: 1.85; }
+}
