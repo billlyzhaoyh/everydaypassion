@@ -10,7 +10,7 @@
       {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
     {% endfor %}
     {% if r.grounded_in %}
-      <p class="src">Grounded in {{ r.grounded_in | join(" & ") }} · written for this morning</p>
+      <p class="src">Background drawn from {{ r.grounded_in | join(" & ") }}</p>
     {% endif %}
   </div>
 </details>

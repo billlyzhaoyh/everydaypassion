@@ -1,8 +1,9 @@
-"""ReflectionWriter — Claude turns grounded facts into a short morning reflection.
+"""ReflectionWriter — Claude turns grounded facts into a short factual background note.
 
-Feeds real Met metadata + a Wikipedia summary to Claude and asks for a warm,
-accurate 2-3 paragraph reflection — grounded, never invented. Also exposes a
-taste gate the poetry source can use to screen out doggerel.
+Feeds real museum metadata + a Wikipedia summary to Claude and asks for concise,
+specific background about the work and its maker — like good museum wall text,
+strictly grounded and never invented. Also exposes a taste gate the poetry source
+can use to screen out doggerel.
 
 Uses the Anthropic SDK; the client is imported lazily so the package imports
 (and the core tests run) without `anthropic` installed or a key set.
@@ -17,21 +18,36 @@ from ..models import Artwork, Poem
 DEFAULT_MODEL = os.environ.get("EVERYDAYPASSION_MODEL", "claude-opus-4-8")
 
 _REFLECTION_SYSTEM = (
-    "You write short morning reflections for a personal art-and-poetry ritual. "
-    "Given real facts about an artwork and its artist, write 2-3 short paragraphs "
-    "(about 120 words) that are warm, grounded, and contemplative. Stay strictly "
-    "faithful to the facts provided — never invent biography, dates, or events. If "
-    "a fact isn't given, don't assert it. Output only the reflection prose, with no "
-    "preamble, title, or sign-off."
+    "You write a short, factual background note about an artwork — the kind of "
+    "thing you'd read on excellent museum wall text or in a catalogue entry. Given "
+    "real facts about the work and its artist, write 2-3 short paragraphs (about "
+    "120-150 words) of concrete background: who the artist was and why they matter, "
+    "when and where the work was made, the technique or materials, and the "
+    "historical or cultural context. Lead with the most genuinely interesting or "
+    "surprising fact. "
+    "Stay strictly faithful to the facts provided — never invent biography, dates, "
+    "attributions, or events; if a fact isn't given, don't assert it, and say less "
+    "rather than pad. "
+    "Do not address the reader ('you'), do not set a mood or mention mornings, "
+    "rituals, or contemplation, and avoid generic art-criticism filler "
+    "('masterpiece', 'timeless', 'invites the viewer', 'captures the essence'). "
+    "Plain, precise, informative. Output only the note, with no preamble, title, "
+    "or sign-off."
 )
 
 _POEM_SYSTEM = (
-    "You write short morning reflections for a personal art-and-poetry ritual. "
-    "Given a poem and real facts about its poet, write 2-3 short paragraphs "
-    "(about 120 words) that are warm, grounded, and contemplative — illuminating "
-    "the poem itself and, where the facts support it, the poet behind it. Stay "
-    "strictly faithful to the facts provided — never invent biography. Output only "
-    "the reflection prose, with no preamble, title, or sign-off."
+    "You write a short, factual background note about a poem and its poet — the kind "
+    "of thing you'd read in a good anthology's notes. Given the poem text and real "
+    "facts about the poet, write 2-3 short paragraphs (about 120-150 words): who the "
+    "poet was and why they matter, when and in what context the poem was written if "
+    "the facts support it, its form or notable features, and what it is about. Lead "
+    "with the most genuinely interesting fact. "
+    "Stay strictly faithful to the facts provided — never invent biography or dates; "
+    "if a fact isn't given, don't assert it. "
+    "Do not address the reader ('you'), do not set a mood or mention mornings, "
+    "rituals, or contemplation, and avoid generic praise ('timeless', 'hauntingly "
+    "beautiful', 'speaks to the soul'). Plain, precise, informative. Output only the "
+    "note, with no preamble, title, or sign-off."
 )
 
 _TASTE_SYSTEM = (
@@ -60,7 +76,7 @@ class ReflectionWriter:
         if summary:
             details.append(f"\nBackground (from Wikipedia):\n{summary}")
         prompt = (
-            "Write the reflection from these facts:\n\n" + "\n".join(details)
+            "Write the background note from these facts:\n\n" + "\n".join(details)
         )
         resp = self._messages().create(
             model=self.model,
@@ -76,7 +92,7 @@ class ReflectionWriter:
         details = [f"Poem: {poem.title}", f"Poet: {poem.author}", "", "\n".join(poem.lines)]
         if summary:
             details.append(f"\nAbout the poet (from Wikipedia):\n{summary}")
-        prompt = "Write the reflection from this poem and these facts:\n\n" + "\n".join(details)
+        prompt = "Write the background note from this poem and these facts:\n\n" + "\n".join(details)
         resp = self._messages().create(
             model=self.model,
             max_tokens=1024,
