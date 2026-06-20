@@ -136,7 +136,9 @@ def test_artic_prefers_named_public_domain_work():
             "data": [
                 {"id": 1, "title": "Anonymous Bowl", "artist_title": None, "image_id": "a"},
                 {"id": 2, "title": "The Bedroom", "artist_title": "Vincent van Gogh",
-                 "date_display": "1889", "medium_display": "Oil", "image_id": "b"},
+                 "date_display": "1889", "medium_display": "Oil", "image_id": "b",
+                 "short_description": "One of three versions of his Arles bedroom.",
+                 "description": "<p>Perhaps the most <em>famous</em> bedroom in art.</p>"},
             ],
         },
     })
@@ -144,6 +146,11 @@ def test_artic_prefers_named_public_domain_work():
     assert art.artist == "Vincent van Gogh"
     assert art.ref_id == "artic-2"
     assert art.source == "Art Institute of Chicago"
+    # curator text is captured for grounding, with markup stripped
+    assert art.details["Curator's summary"] == "One of three versions of his Arles bedroom."
+    assert art.details["Curatorial description"] == "Perhaps the most famous bedroom in art."
+    # the description becomes the displayable curator note (markup stripped)
+    assert art.curator_note == "Perhaps the most famous bedroom in art."
 
 
 def test_cleveland_extracts_artist_name_and_image():
@@ -153,6 +160,8 @@ def test_cleveland_extracts_artist_name_and_image():
                 {"id": 9, "title": "Stag at Sharkey's",
                  "creators": [{"description": "George Bellows (American, 1882–1925)"}],
                  "creation_date": "1909", "technique": "Oil on canvas",
+                 "description": "Bellows depicts a brutal boxing match.",
+                 "did_you_know": "Sharkey's was a saloon near the artist's studio.",
                  "images": {"web": {"url": "https://x/img.jpg"}}},
             ],
         },
@@ -161,6 +170,13 @@ def test_cleveland_extracts_artist_name_and_image():
     assert art.artist == "George Bellows"
     assert art.ref_id == "cma-9"
     assert art.license == "CC0"
+    assert art.details["Curatorial description"] == "Bellows depicts a brutal boxing match."
+    assert art.details["Did you know"] == "Sharkey's was a saloon near the artist's studio."
+    # description + did-you-know compose the displayable curator note
+    assert art.curator_note == (
+        "Bellows depicts a brutal boxing match.\n\n"
+        "Did you know? Sharkey's was a saloon near the artist's studio."
+    )
 
 
 def test_smk_parses_cc0_record_with_image():

@@ -74,6 +74,49 @@ def test_happy_path_assembles_from_live_sources(tmp_path):
     assert pkg.poem_reflection.grounded_in == ["PoetryDB", "Wikipedia"]
 
 
+# ---- curator note skips the LLM ------------------------------------------
+def test_quality_curator_note_is_used_verbatim_and_skips_llm(tmp_path):
+    note = ("This earthenware lion was modeled by Minton & Co. in the 1850s, when the firm "
+            "revived majolica glazes to dazzle the crowds at the Great Exhibition in London.")
+
+    class CuratedMet:
+        def fetch_artwork(self, date, seen, public_only):
+            return Artwork("Cleveland Museum of Art", "CC0", True, "Lion", "Minton",
+                           "1850", "Earthenware", "cma-1", curator_note=note)
+
+    class BoomWiki:
+        def facts_for(self, a):
+            raise AssertionError("Wikipedia must be skipped when a curator note exists")
+
+        def facts_for_poet(self, p):
+            return {"summary": "poet facts"}
+
+    class BoomReflection:
+        def write(self, a, f):
+            raise AssertionError("the LLM must be skipped when a curator note exists")
+
+        def write_poem(self, p, f):
+            return "poem note"
+
+    builder, _ = _builder(tmp_path, met=CuratedMet(), poetry=FakePoetry(),
+                          wiki=BoomWiki(), reflection=BoomReflection())
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.artwork_reflection.text == note
+    assert pkg.artwork_reflection.grounded_in == ["Cleveland Museum of Art"]
+
+
+def test_thin_curator_note_still_uses_the_llm(tmp_path):
+    class ThinNoteMet:
+        def fetch_artwork(self, date, seen, public_only):
+            return Artwork("The Met", "CC0", True, "Vase", "Maker", "1900", "Clay",
+                           "m-1", curator_note="Too short.")
+
+    builder, _ = _builder(tmp_path, met=ThinNoteMet(), poetry=FakePoetry(),
+                          wiki=FakeWiki(), reflection=FakeReflection())
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.artwork_reflection.text == "A reflection on Vase."
+
+
 # ---- fallback policy -----------------------------------------------------
 def test_artwork_falls_back_to_library_when_met_fails(tmp_path):
     builder, _ = _builder(tmp_path, met=FakeMet(fail=True), poetry=FakePoetry())
