@@ -49,10 +49,13 @@
 
 <div class="chrome">
   <span>{{ pretty }}</span>
+  {% if site.interactive %}
   <button class="heart {% if is_favorite %}on{% endif %}" id="heart" type="button"
           data-date="{{ date }}">{% if is_favorite %}♥ kept{% else %}♡ keep{% endif %}</button>
+  {% endif %}
 </div>
 
+{% if site.interactive %}
 <script>
   (function () {
     var heart = document.getElementById("heart");
@@ -65,4 +68,5 @@
     });
   })();
 </script>
+{% endif %}
 {% endblock %}

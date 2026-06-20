@@ -247,3 +247,11 @@ details[open] summary .mark { transform: rotate(45deg); }
 @media (prefers-reduced-motion: reduce) {
   details summary .mark { transition: none; }
 }
+
+/* Phones: tighter margins, let the top bar wrap rather than crush. */
+@media (max-width: 480px) {
+  .wrap { padding: 26px 18px 72px; }
+  .topbar { flex-wrap: wrap; gap: 10px 16px; margin-bottom: 28px; }
+  .caption .title { font-size: 1.45rem; }
+  .poem .verse { font-size: 1.02rem; line-height: 1.85; }
+}

@@ -6,9 +6,9 @@
 <ul class="entries">
   {% for d in dates %}
   <li>
-    <a href="/day/{{ d }}">
+    <a href="{{ site.day(d) }}">
       <span class="when">{{ pretty(d) }}</span>
-      {% if store.is_favorite(d) %}<span class="fav">♥</span>{% endif %}
+      {% if site.interactive and is_favorite(d) %}<span class="fav">♥</span>{% endif %}
     </a>
   </li>
   {% endfor %}

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}everydaypassion{% endblock %}</title>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="{{ site.static_asset('app.css') }}">
   <script>
     // Apply a pinned theme before first paint to avoid a flash.
     (function () {
@@ -18,10 +18,10 @@
 <body>
   <div class="wrap">
     <div class="topbar">
-      <span><a href="/">everydaypassion</a></span>
+      <span><a href="{{ site.home() }}">everydaypassion</a></span>
       <span class="links">
-        <a href="/archive">past mornings</a>
-        <a href="/favorites">favorites</a>
+        <a href="{{ site.archive() }}">past mornings</a>
+        {% if site.interactive %}<a href="/favorites">favorites</a>{% endif %}
         <button class="theme-toggle" id="theme-toggle" type="button">theme</button>
       </span>
     </div>

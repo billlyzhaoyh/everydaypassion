@@ -8,6 +8,7 @@ the repo under data/curated.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from .builder import DayBuilder
@@ -21,6 +22,45 @@ try:
     load_dotenv()
 except Exception:  # noqa: BLE001 — dotenv is optional; env vars still work
     pass
+
+
+@dataclass(frozen=True)
+class SiteConfig:
+    """The two shapes this codebase runs as.
+
+    ``local`` is the private morning ritual: the whole library (every museum,
+    V&A, curated modern), an interactive server, links as live routes. ``public``
+    is the publishable static subset: CC0 content only, no interactive state, and
+    links/assets written as files under ``base_url`` for GitHub Pages.
+    """
+
+    public_only: bool
+    base_url: str
+    interactive: bool
+    static: bool  # True when rendering to files, False when serving routes
+
+    def home(self) -> str:
+        return self.base_url if self.static else "/"
+
+    def archive(self) -> str:
+        return f"{self.base_url}archive.html" if self.static else "/archive"
+
+    def day(self, date: str) -> str:
+        return f"{self.base_url}day/{date}.html" if self.static else f"/day/{date}"
+
+    def static_asset(self, name: str) -> str:
+        return f"{self.base_url if self.static else '/'}static/{name}"
+
+    def image(self, name: str) -> str:
+        return f"{self.base_url if self.static else '/'}images/{name}"
+
+
+LOCAL = SiteConfig(public_only=False, base_url="/", interactive=True, static=False)
+
+
+def public_site(base_url: str = "/everydaypassion/") -> SiteConfig:
+    base = base_url if base_url.endswith("/") else base_url + "/"
+    return SiteConfig(public_only=True, base_url=base, interactive=False, static=True)
 
 
 def home() -> Path:

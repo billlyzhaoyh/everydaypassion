@@ -63,14 +63,46 @@ now with `everydaypassion open --force`.
 | `library` | curated local corpus + offline fallback |
 | `builder` | orchestration: generate-if-missing, retry → fallback |
 | `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, V&A) + PoetryDB, Wikipedia, Claude reflections |
-| `web/` | FastAPI server (today / archive / favorites), idle self-shutdown |
+| `web/` | render layer + FastAPI server (today / archive / favorites), idle self-shutdown |
+| `static_site` | public static export for GitHub Pages |
+
+## Two shapes, one codebase
+
+A `SiteConfig` selects the mode (see `config.py`):
+
+- **Local (private)** — the whole library: every museum, the V&A, curated modern
+  art/poems; an interactive server with favorites; Claude called at build time on
+  first visit, then frozen. `everydaypassion serve`.
+- **Public (static)** — the publishable CC0-only subset (V&A and curated modern
+  exclude themselves), rendered to plain files with no interactive state. The
+  Claude reflection is generated **at export time** and baked into the HTML — the
+  published artifact carries no API key and makes no runtime calls.
+
+## Publishing to GitHub Pages
+
+```bash
+everydaypassion export --out docs --base-url /everydaypassion/ --days 1
+```
+
+Writes `docs/index.html` (today), `docs/day/<date>.html`, `docs/archive.html`,
+plus copied CC0 images and CSS. The output is responsive (single fluid column,
+`width=device-width`, fluid image, dark/light follows the OS) — reads cleanly on
+a laptop and a phone.
+
+`.github/workflows/daily.yml` runs this at 06:00 UTC daily and commits `docs/`,
+so the archive accumulates. To go live:
+
+1. Add `ANTHROPIC_API_KEY` as a repo **Actions secret**.
+2. Settings → **Pages** → Source: *Deploy from a branch* → your default branch, `/docs`.
+3. The site lands at `https://<user>.github.io/everydaypassion/`.
 
 ## Content & licensing
 
-Every item carries `source` / `license` / `public_ok`. The Met (CC0), classic
-public-domain poetry, and Claude's reflections are publishable; **curated modern
-poems are copyrighted and private-only** (`public_ok: false`). A future public
-build is the same generator filtered to `public_ok = true`. See
+Every item carries `source` / `license` / `public_ok`. The CC0 museums (Met, Art
+Institute, Cleveland, SMK), classic public-domain poetry, and Claude's
+reflections are publishable; **the V&A (personal-use license) and curated modern
+art/poems are private-only** (`public_ok: false`). The public build is the same
+generator filtered to `public_ok = true`. See
 [`data/curated/MODERN_POEMS.md`](data/curated/MODERN_POEMS.md) for how to add
 modern poems.
 

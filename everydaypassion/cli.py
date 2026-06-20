@@ -38,6 +38,17 @@ def cmd_build(args) -> int:
     return 0
 
 
+def cmd_export(args) -> int:
+    from . import static_site
+
+    site = config.public_site(args.base_url)
+    warnings = static_site.export(args.out, site, days=args.days, online=not args.offline)
+    print(f"Exported {args.days} day(s) to {args.out} (base {site.base_url})")
+    for w in warnings:
+        print(f"  warning: {w}")
+    return 0
+
+
 def cmd_serve(args) -> int:
     import uvicorn
 
@@ -89,6 +100,12 @@ def main(argv=None) -> int:
     p_build.set_defaults(func=cmd_build)
 
     sub.add_parser("serve", parents=[common], help="Run the local server.").set_defaults(func=cmd_serve)
+
+    p_export = sub.add_parser("export", parents=[common], help="Export the public static site for GitHub Pages.")
+    p_export.add_argument("--out", default="docs", help="Output directory (default: docs).")
+    p_export.add_argument("--base-url", default="/everydaypassion/", help="Site base path for assets/links.")
+    p_export.add_argument("--days", type=int, default=1, help="How many recent days to build (default: today only).")
+    p_export.set_defaults(func=cmd_export)
 
     p_open = sub.add_parser("open", parents=[common], help="Open today's morning in the browser (once per day).")
     p_open.add_argument("--force", action="store_true", help="Open even if already greeted today.")
