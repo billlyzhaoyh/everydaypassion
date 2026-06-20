@@ -1,0 +1,76 @@
+[
+  {
+    "source": "curated",
+    "license": "Public domain",
+    "public_ok": true,
+    "title": "Dust of Snow",
+    "author": "Robert Frost",
+    "year": "1923",
+    "lines": [
+      "The way a crow",
+      "Shook down on me",
+      "The dust of snow",
+      "From a hemlock tree",
+      "",
+      "Has given my heart",
+      "A change of mood",
+      "And saved some part",
+      "Of a day I had rued."
+    ]
+  },
+  {
+    "source": "curated",
+    "license": "Public domain",
+    "public_ok": true,
+    "title": "\"Hope\" is the thing with feathers",
+    "author": "Emily Dickinson",
+    "year": "1891",
+    "lines": [
+      "\"Hope\" is the thing with feathers -",
+      "That perches in the soul -",
+      "And sings the tune without the words -",
+      "And never stops - at all -",
+      "",
+      "And sweetest - in the Gale - is heard -",
+      "And sore must be the storm -",
+      "That could abash the little Bird",
+      "That kept so many warm -"
+    ]
+  },
+  {
+    "source": "curated",
+    "license": "Public domain",
+    "public_ok": true,
+    "title": "The Road Not Taken",
+    "author": "Robert Frost",
+    "year": "1916",
+    "lines": [
+      "Two roads diverged in a yellow wood,",
+      "And sorry I could not travel both",
+      "And be one traveler, long I stood",
+      "And looked down one as far as I could",
+      "To where it bent in the undergrowth;",
+      "",
+      "Then took the other, as just as fair,",
+      "And having perhaps the better claim,",
+      "Because it was grassy and wanted wear;",
+      "Though as for that the passing there",
+      "Had worn them really about the same,"
+    ]
+  },
+  {
+    "source": "curated",
+    "license": "Public domain",
+    "public_ok": true,
+    "title": "A Noiseless Patient Spider",
+    "author": "Walt Whitman",
+    "year": "1868",
+    "lines": [
+      "A noiseless patient spider,",
+      "I mark'd where on a little promontory it stood isolated,",
+      "Mark'd how to explore the vacant vast surrounding,",
+      "It launch'd forth filament, filament, filament, out of itself,",
+      "Ever unreeling them, ever tirelessly speeding them."
+    ]
+  }
+]

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.everydaypassion.open</string>
+
+  <!-- Greets you on first login/wake of the day. The CLI's once-per-day
+       guard makes re-fires harmless, so this is safe to RunAtLoad. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PYTHON__</string>
+    <string>-m</string>
+    <string>everydaypassion</string>
+    <string>open</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ANTHROPIC_API_KEY</key>
+    <string>__ANTHROPIC_API_KEY__</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/.everydaypassion/open.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/.everydaypassion/open.err</string>
+</dict>
+</plist>

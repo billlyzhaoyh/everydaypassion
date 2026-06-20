@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ pkg.artwork.title }} · everydaypassion{% endblock %}
+
+{% macro reveal(r) %}
+{% if r and r.text %}
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    {% for para in r.text.split("\n\n") %}
+      {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
+    {% endfor %}
+    {% if r.grounded_in %}
+      <p class="src">Grounded in {{ r.grounded_in | join(" & ") }} · written for this morning</p>
+    {% endif %}
+  </div>
+</details>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="frame">
+  {% if image_url %}
+    <img src="{{ image_url }}" alt="{{ pkg.artwork.title }} by {{ pkg.artwork.artist }}">
+  {% else %}
+    <div class="placeholder">image unavailable offline</div>
+  {% endif %}
+</div>
+
+<div class="caption">
+  <h1 class="title">{{ pkg.artwork.title }}</h1>
+  <p class="meta">
+    {{ pkg.artwork.artist }}{% if pkg.artwork.date %} · {{ pkg.artwork.date }}{% endif %}{% if pkg.artwork.medium %} · {{ pkg.artwork.medium }}{% endif %}<br>
+    {{ pkg.artwork.source }} · {{ pkg.artwork.license }}
+  </p>
+</div>
+
+{{ reveal(pkg.artwork_reflection) }}
+
+<div class="rule"></div>
+
+<div class="poem">
+  <p class="label">Today's poem</p>
+  <h2>{{ pkg.poem.title }}</h2>
+  <p class="verse">{{ pkg.poem.lines | join("\n") }}</p>
+  <p class="by">{{ pkg.poem.author }}{% if pkg.poem.year %} · {{ pkg.poem.year }}{% endif %} · {{ pkg.poem.license }}</p>
+</div>
+
+{{ reveal(pkg.poem_reflection) }}
+
+<div class="chrome">
+  <span>{{ pretty }}</span>
+  {% if site.interactive %}
+  <button class="heart {% if is_favorite %}on{% endif %}" id="heart" type="button"
+          data-date="{{ date }}">{% if is_favorite %}♥ kept{% else %}♡ keep{% endif %}</button>
+  {% endif %}
+</div>
+
+{% if site.interactive %}
+<script>
+  (function () {
+    var heart = document.getElementById("heart");
+    heart.addEventListener("click", async function () {
+      var date = heart.getAttribute("data-date");
+      var resp = await fetch("/favorite/" + date, { method: "POST" });
+      var data = await resp.json();
+      heart.classList.toggle("on", data.favorited);
+      heart.textContent = data.favorited ? "♥ kept" : "♡ keep";
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

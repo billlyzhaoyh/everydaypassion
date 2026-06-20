@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}everydaypassion{% endblock %}</title>
+  <link rel="stylesheet" href="{{ site.static_asset('app.css') }}">
+  <script>
+    // Apply a pinned theme before first paint to avoid a flash.
+    (function () {
+      try {
+        var t = localStorage.getItem("edp-theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span><a href="{{ site.home() }}">everydaypassion</a></span>
+      <span class="links">
+        <a href="{{ site.archive() }}">past mornings</a>
+        {% if site.interactive %}<a href="/favorites">favorites</a>{% endif %}
+        <button class="theme-toggle" id="theme-toggle" type="button">theme</button>
+      </span>
+    </div>
+    {% block content %}{% endblock %}
+  </div>
+  <script>
+    (function () {
+      var btn = document.getElementById("theme-toggle");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme");
+        // No pin yet → follow whatever the OS shows, then flip to the opposite.
+        var isDark = cur
+          ? cur === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var next = isDark ? "paper" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("edp-theme", next); } catch (e) {}
+      });
+    })();
+  </script>
+</body>
+</html>

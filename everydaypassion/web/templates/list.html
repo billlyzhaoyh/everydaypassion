@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · everydaypassion{% endblock %}
+{% block content %}
+<h1 class="page-title">{{ title }}</h1>
+{% if dates %}
+<ul class="entries">
+  {% for d in dates %}
+  <li>
+    <a href="{{ site.day(d) }}">
+      <span class="when">{{ pretty(d) }}</span>
+      {% if site.interactive and is_favorite(d) %}<span class="fav">♥</span>{% endif %}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">Nothing here yet. Your mornings will collect as the days go by.</p>
+{% endif %}
+{% endblock %}

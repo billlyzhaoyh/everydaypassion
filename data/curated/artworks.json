@@ -1,0 +1,26 @@
+[
+  {
+    "source": "The Met",
+    "license": "CC0",
+    "public_ok": true,
+    "title": "Wheat Field with Cypresses",
+    "artist": "Vincent van Gogh",
+    "date": "1889",
+    "medium": "Oil on canvas",
+    "ref_id": "met-436535",
+    "image_path": null,
+    "artist_url": "https://www.wikidata.org/wiki/Q5582"
+  },
+  {
+    "source": "The Met",
+    "license": "CC0",
+    "public_ok": true,
+    "title": "The Great Wave off Kanagawa",
+    "artist": "Katsushika Hokusai",
+    "date": "ca. 1830-32",
+    "medium": "Woodblock print",
+    "ref_id": "met-45434",
+    "image_path": null,
+    "artist_url": "https://www.wikidata.org/wiki/Q5586"
+  }
+]
