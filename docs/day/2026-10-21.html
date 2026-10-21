@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Great St. Sebastian · everydaypassion</title>
+  <link rel="stylesheet" href="/everydaypassion/static/app.css">
+  <script>
+    // Apply a pinned theme before first paint to avoid a flash.
+    (function () {
+      try {
+        var t = localStorage.getItem("edp-theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span><a href="/everydaypassion/">everydaypassion</a></span>
+      <span class="links">
+        <a href="/everydaypassion/archive.html">past mornings</a>
+        
+        <button class="theme-toggle" id="theme-toggle" type="button">theme</button>
+      </span>
+    </div>
+    
+<div class="frame">
+  
+    <img src="/everydaypassion/images/cma-110120.jpg" alt="The Great St. Sebastian by Hans Baldung">
+  
+</div>
+
+<div class="caption">
+  <h1 class="title">The Great St. Sebastian</h1>
+  <p class="meta">
+    Hans Baldung · 1514 · woodcut<br>
+    Cleveland Museum of Art · CC0
+  </p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>Hans Baldung (German, 1484/85–1545), nicknamed Grien, was among the most accomplished pupils of Albrecht Dürer, and his work bridges the German Renaissance and Mannerism. He worked across media, as a painter, engraver, draftsman, and stained glass artist.</p>
+    
+      <p>This woodcut, *The Great St. Sebastian*, dates to 1514. The medium—a relief print cut into a wood block—allowed images to be reproduced in numbers, and the technique was central to the printmaking culture that flourished in Dürer&#39;s circle.</p>
+    
+      <p>The impression at the Cleveland Museum of Art was given by Edward B. Greene in 1928.</p>
+    
+    
+      <p class="src">Background drawn from Cleveland Museum of Art &amp; Wikipedia</p>
+    
+  </div>
+</details>
+
+
+
+<div class="rule"></div>
+
+<div class="poem">
+  <p class="label">Today's poem</p>
+  <h2>To Friends at Home</h2>
+  <p class="verse">TO friends at home, the lone, the admired, the lost
+The gracious old, the lovely young, to May
+The fair, December the beloved,
+These from my blue horizon and green isles,
+These from this pinnacle of distances I,
+The unforgetful, dedicate.</p>
+  <p class="by">Robert Louis Stevenson · Public domain</p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>Robert Louis Stevenson (1850–1894, though no dates are asserted here beyond his works) was a Scottish novelist, essayist, poet and travel writer, best known for the novels Treasure Island, Strange Case of Dr Jekyll and Mr Hyde, and Kidnapped, and for the poetry collection A Child&#39;s Garden of Verses.</p>
+    
+      <p>&#34;To Friends at Home&#34; is a short dedicatory poem addressed to the people Stevenson left behind. The speaker writes from a distant vantage — &#34;my blue horizon and green isles,&#34; &#34;this pinnacle of distances&#34; — and offers his lines as a tribute to friends past and present: the old and the young, the admired and the lost.</p>
+    
+      <p>The poem is brief and unrhymed, built around direct address and a catalogue of those being remembered. Its central concern is distance and memory: the poet, calling himself &#34;the unforgetful,&#34; reaches back across separation to dedicate his words to those at home.</p>
+    
+    
+      <p class="src">Background drawn from PoetryDB &amp; Wikipedia</p>
+    
+  </div>
+</details>
+
+
+
+<div class="chrome">
+  <span>Wednesday · 21 October 2026</span>
+  
+</div>
+
+
+
+  </div>
+  <script>
+    (function () {
+      var btn = document.getElementById("theme-toggle");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme");
+        // No pin yet → follow whatever the OS shows, then flip to the opposite.
+        var isDark = cur
+          ? cur === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var next = isDark ? "paper" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("edp-theme", next); } catch (e) {}
+      });
+    })();
+  </script>
+</body>
+</html>
