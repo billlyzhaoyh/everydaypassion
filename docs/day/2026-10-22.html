@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>In the Brambles (Dans les Ronces) · everydaypassion</title>
+  <link rel="stylesheet" href="/everydaypassion/static/app.css">
+  <script>
+    // Apply a pinned theme before first paint to avoid a flash.
+    (function () {
+      try {
+        var t = localStorage.getItem("edp-theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span><a href="/everydaypassion/">everydaypassion</a></span>
+      <span class="links">
+        <a href="/everydaypassion/archive.html">past mornings</a>
+        
+        <button class="theme-toggle" id="theme-toggle" type="button">theme</button>
+      </span>
+    </div>
+    
+<div class="frame">
+  
+    <img src="/everydaypassion/images/cma-79120.jpg" alt="In the Brambles (Dans les Ronces) by Henri Detouche">
+  
+</div>
+
+<div class="caption">
+  <h1 class="title">In the Brambles (Dans les Ronces)</h1>
+  <p class="meta">
+    Henri Detouche · 1898 · color lithograph<br>
+    Cleveland Museum of Art · CC0
+  </p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>&#34;In the Brambles&#34; (Dans les Ronces) is a color lithograph made in 1898 by the French artist Henri Detouche (1854–1913). The printed image measures roughly 35 by 25 cm on a slightly larger sheet.</p>
+    
+      <p>Color lithography, which involves drawing on separate stones or plates for each color, was widely used in France during the 1890s, a period when artists and publishers treated the lithograph as an independent artistic medium rather than a reproductive one.</p>
+    
+      <p>The print came to the Cleveland Museum of Art in 2016 as a bequest of Elizabeth Carroll Shearer.</p>
+    
+    
+      <p class="src">Background drawn from Cleveland Museum of Art</p>
+    
+  </div>
+</details>
+
+
+
+<div class="rule"></div>
+
+<div class="poem">
+  <p class="label">Today's poem</p>
+  <h2>The skies can&#39;t keep their secret!</h2>
+  <p class="verse">The skies can&#39;t keep their secret!
+They tell it to the hills --
+The hills just tell the orchards --
+And they the daffodils!
+
+A bird, by chance, that goes that way
+Soft overheard the whole.
+If I should bribe the little bird,
+Who knows but she would tell?
+
+I think I won&#39;t, however,
+It&#39;s finer not to know;
+If summer were an axiom,
+What sorcery had snow?
+
+So keep your secret, Father!
+I would not, if I could,
+Know what the sapphire fellows do,
+In your new-fashioned world!</p>
+  <p class="by">Emily Dickinson · Public domain</p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>Emily Dickinson wrote prolifically but published almost nothing during her lifetime; largely unknown while she lived, she is now regarded as a canonical American poet. The Poetry Foundation credits her with creating &#34;a distinctively elliptical language for expressing what was possible but not yet realized.&#34;</p>
+    
+      <p>This poem personifies the natural world as keeper of a secret passed down a chain — from skies to hills to orchards to daffodils — with a bird as accidental eavesdropper. The speaker imagines bribing the bird to learn the secret, then declines, preferring not to know.</p>
+    
+      <p>The poem turns on the value of mystery over certainty: &#34;It&#39;s finer not to know,&#34; since &#34;If summer were an axiom, / What sorcery had snow?&#34; The final stanza addresses a &#34;Father,&#34; refusing to know &#34;what the sapphire fellows do.&#34; Its short, hymn-like quatrains and conversational address are characteristic of Dickinson&#39;s compressed style.</p>
+    
+    
+      <p class="src">Background drawn from PoetryDB &amp; Wikipedia</p>
+    
+  </div>
+</details>
+
+
+
+<div class="chrome">
+  <span>Thursday · 22 October 2026</span>
+  
+</div>
+
+
+
+  </div>
+  <script>
+    (function () {
+      var btn = document.getElementById("theme-toggle");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme");
+        // No pin yet → follow whatever the OS shows, then flip to the opposite.
+        var isDark = cur
+          ? cur === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var next = isDark ? "paper" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("edp-theme", next); } catch (e) {}
+      });
+    })();
+  </script>
+</body>
+</html>
