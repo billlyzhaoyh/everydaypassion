@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gadearbejdere · everydaypassion</title>
+  <link rel="stylesheet" href="/everydaypassion/static/app.css">
+  <script>
+    // Apply a pinned theme before first paint to avoid a flash.
+    (function () {
+      try {
+        var t = localStorage.getItem("edp-theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span><a href="/everydaypassion/">everydaypassion</a></span>
+      <span class="links">
+        <a href="/everydaypassion/archive.html">past mornings</a>
+        
+        <button class="theme-toggle" id="theme-toggle" type="button">theme</button>
+      </span>
+    </div>
+    
+<div class="frame">
+  
+    <img src="/everydaypassion/images/smk-KKS1975-176.jpg" alt="Gadearbejdere by Traustedt, Gudrun">
+  
+</div>
+
+<div class="caption">
+  <h1 class="title">Gadearbejdere</h1>
+  <p class="meta">
+    Traustedt, Gudrun · 1920-1924 · Pen, brunt blæk, papiret gulplettet<br>
+    SMK — National Gallery of Denmark · CC0
+  </p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>&#34;Gadearbejdere&#34; (Street Workers) is a pen drawing in brown ink by the Danish artist Gudrun Traustedt, made between 1920 and 1924. It is held in the collection of the SMK — the National Gallery of Denmark.</p>
+    
+      <p>The work is executed on paper that now shows yellow spotting, a form of age-related discoloration common to works on paper from this period. The subject—laborers at work in the street—reflects an interest in everyday urban scenes.</p>
+    
+    
+      <p class="src">Background drawn from SMK — National Gallery of Denmark</p>
+    
+  </div>
+</details>
+
+
+
+<div class="rule"></div>
+
+<div class="poem">
+  <p class="label">Today's poem</p>
+  <h2>The Chimney-Sweeper</h2>
+  <p class="verse">When my mother died I was very young,
+And my father sold me while yet my tongue
+Could scarcely cry &#34;Weep! weep! weep! weep!&#34;
+So your chimneys I sweep, and in soot I sleep.
+
+There&#39;s little Tom Dacre, who cried when his head,
+That curled like a lamb&#39;s back, was shaved; so I said,
+&#34;Hush, Tom! never mind it, for, when your head&#39;s bare,
+You know that the soot cannot spoil your white hair.&#34;
+
+And so he was quiet, and that very night,
+As Tom was a-sleeping, he had such a sight!--
+That thousands of sweepers, Dick, Joe, Ned, and Jack,
+Were all of them locked up in coffins of black.
+
+And by came an angel, who had a bright key,
+And he opened the coffins, and let them all free;
+Then down a green plain, leaping, laughing, they run,
+And wash in a river, and shine in the sun.
+
+Then naked and white, all their bags left behind,
+They rise upon clouds, and sport in the wind;
+And the Angel told Tom, if he&#39;d be a good boy,
+He&#39;d have God for his father, and never want joy.
+
+And so Tom awoke, and we rose in the dark,
+And got with our bags and our brushes to work.
+Though the morning was cold, Tom was happy and warm:
+So, if all do their duty, they need not fear harm.</p>
+  <p class="by">William Blake · Public domain</p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>William Blake was an English poet, painter and printmaker, largely unrecognised in his lifetime but now regarded as a seminal figure in the poetry and visual art of the Romantic Age. He lived in London his entire life except for three years in Felpham, and produced a symbolically rich body of work that treated the imagination as, in his words, &#34;the body of God&#34;.</p>
+    
+      <p>&#34;The Chimney-Sweeper&#34; is spoken by a child sold into the trade after his mother&#39;s death, who comforts a younger boy, Tom Dacre, during the horrors of their work. The poem turns on Tom&#39;s dream of sweepers locked in black coffins and freed by an angel to wash in a river and rise into the sun.</p>
+    
+      <p>Written in rhyming couplets and plain, song-like language, the poem sets a child&#39;s innocent voice against the cruelty of child labour. Its closing moral—&#34;if all do their duty, they need not fear harm&#34;—carries an irony that sharpens its implicit protest.</p>
+    
+    
+      <p class="src">Background drawn from PoetryDB &amp; Wikipedia</p>
+    
+  </div>
+</details>
+
+
+
+<div class="chrome">
+  <span>Monday · 26 October 2026</span>
+  
+</div>
+
+
+
+  </div>
+  <script>
+    (function () {
+      var btn = document.getElementById("theme-toggle");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme");
+        // No pin yet → follow whatever the OS shows, then flip to the opposite.
+        var isDark = cur
+          ? cur === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var next = isDark ? "paper" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("edp-theme", next); } catch (e) {}
+      });
+    })();
+  </script>
+</body>
+</html>
