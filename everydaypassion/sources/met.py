@@ -56,17 +56,18 @@ class MetSource:
         # Prefer a work with a named artist (so the "about the artist" reflection
         # has a real person to ground on), but fall back to the first public-domain
         # work with an image if the probe window turns up none.
-        fallback: Artwork | None = None
+        # Check the raw record first so only the returned work's image is downloaded.
+        fallback: dict | None = None
         for obj_id in ordered[: self.max_probe]:
             obj = self.http.get_json(f"{MET_BASE}/objects/{obj_id}")
             if not (obj.get("isPublicDomain") and obj.get("primaryImage")):
                 continue
-            art = self._to_artwork(obj)
-            if art.artist and art.artist != "Unknown":
-                return art
-            fallback = fallback or art
+            name = obj.get("artistDisplayName")
+            if name and name != "Unknown":
+                return self._to_artwork(obj)
+            fallback = fallback or obj
         if fallback is not None:
-            return fallback
+            return self._to_artwork(fallback)
         raise MetSourceError("no public-domain artwork with an image found")
 
     # ---- helpers --------------------------------------------------------
@@ -89,11 +90,8 @@ class MetSource:
 
     def _to_artwork(self, obj: dict) -> Artwork:
         obj_id = obj["objectID"]
-        image_path = cache_image(
-            self.http, self.image_dir,
-            obj.get("primaryImageSmall") or obj.get("primaryImage"),
-            f"met-{obj_id}",
-        )
+        image_url = obj.get("primaryImageSmall") or obj.get("primaryImage")
+        image_path = cache_image(self.http, self.image_dir, image_url, f"met-{obj_id}")
         return Artwork(
             source="The Met",
             license="CC0",
@@ -104,6 +102,7 @@ class MetSource:
             medium=obj.get("medium") or "",
             ref_id=str(obj_id),
             image_path=image_path,
+            image_url=image_url,
             artist_url=obj.get("artistWikidata_URL") or obj.get("objectWikidata_URL") or None,
             details=details_from(obj, _DETAILS),
         )

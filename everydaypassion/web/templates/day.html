@@ -10,7 +10,8 @@
       {% if para.strip() %}<p>{{ para.strip() }}</p>{% endif %}
     {% endfor %}
     {% if r.grounded_in %}
-      <p class="src">Background drawn from {{ r.grounded_in | join(" & ") }}</p>
+      <p class="src">Background drawn from {{ r.grounded_in | join(" & ") }}
+        {%- if r.license %} · {% if r.license_url %}<a href="{{ r.license_url }}">{{ r.license }}</a>{% else %}{{ r.license }}{% endif %}{% endif %}</p>
     {% endif %}
   </div>
 </details>

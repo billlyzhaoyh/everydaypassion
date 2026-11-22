@@ -63,4 +63,5 @@ class VamSource:
             medium=chosen.get("objectType") or "",
             ref_id=f"va-{chosen['systemNumber']}",
             image_path=cache_image(self.http, self.image_dir, image, f"va-{chosen['systemNumber']}"),
+            image_url=image,
         )

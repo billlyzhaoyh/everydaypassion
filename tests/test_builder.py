@@ -175,3 +175,76 @@ def test_retry_recovers_within_budget(tmp_path):
 
     builder, _ = _builder(tmp_path, met=FlakyMet(), poetry=FakePoetry(), retries=2)
     assert builder.ensure("2026-06-19").artwork.title == "Recovered"
+
+
+# ---- degraded days are retried, complete days frozen --------------------
+def test_degraded_package_is_retried_until_complete(tmp_path):
+    met = FakeMet(fail=True)
+    builder, store = _builder(tmp_path, met=met, poetry=FakePoetry(),
+                              wiki=FakeWiki(), reflection=FakeReflection())
+    first = builder.ensure("2026-06-19")  # offline at login: fallback art
+    assert first.artwork.title == "Fallback Artwork"
+    assert first.frozen is False
+
+    met.fail = True
+    assert builder.ensure("2026-06-19").artwork.title == "Fallback Artwork"  # still down: kept
+
+    met.fail = False  # network is back
+    healed = builder.ensure("2026-06-19")
+    assert healed.artwork.title == "Live Artwork"
+    assert healed.frozen is True
+    calls = met.calls
+    builder.ensure("2026-06-19")
+    assert met.calls == calls  # now frozen: read, never rebuilt
+
+
+def test_missing_reflection_is_not_frozen(tmp_path):
+    class DownReflection(FakeReflection):
+        def write(self, artwork, facts):
+            raise RuntimeError("no key")
+
+    builder, _ = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(),
+                          wiki=FakeWiki(), reflection=DownReflection())
+    assert builder.ensure("2026-06-19").frozen is False
+
+
+def test_fully_offline_build_is_still_frozen(tmp_path):
+    builder, _ = _builder(tmp_path)  # --offline: nothing configured, nothing failed
+    assert builder.ensure("2026-06-19").frozen is True
+
+
+def test_concurrent_first_requests_build_once(tmp_path):
+    import threading
+    import time
+
+    class SlowMet(FakeMet):
+        def fetch_artwork(self, date, seen, public_only):
+            time.sleep(0.05)
+            return super().fetch_artwork(date, seen, public_only)
+
+    met = SlowMet()
+    builder, _ = _builder(tmp_path, met=met, poetry=FakePoetry())
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(builder.ensure("2026-06-19")))
+               for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert met.calls == 1
+    assert results[0].to_dict() == results[1].to_dict()
+
+
+def test_curator_note_licence_is_carried_to_the_reflection(tmp_path):
+    note = "A long museum description. " * 6
+
+    class NoteArt:
+        def fetch_artwork(self, date, seen, public_only):
+            return Artwork("Art Institute of Chicago", "CC0", True, "T", "A", "", "", "artic-1",
+                           curator_note=note, curator_note_license="CC BY 4.0",
+                           curator_note_license_url="https://creativecommons.org/licenses/by/4.0/")
+
+    builder, _ = _builder(tmp_path, met=NoteArt(), poetry=FakePoetry(),
+                          wiki=FakeWiki(), reflection=FakeReflection())
+    refl = builder.ensure("2026-06-19").artwork_reflection
+    assert refl.license == "CC BY 4.0"

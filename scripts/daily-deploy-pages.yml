@@ -1,0 +1,80 @@
+name: Daily morning
+
+# TO INSTALL: copy this file over .github/workflows/daily.yml (the Claude session
+# that wrote it couldn't push workflow files: that needs the `workflow` token scope).
+#
+# Builds today's public (CC0 / public-domain only) morning and deploys the site
+# with actions/deploy-pages, so no rendered page or image is committed:
+#
+# - data/public/ (committed): each published day as JSON + the seen log. Small
+#   text, and the source the archive is re-rendered from on every run.
+# - docs/ (committed, frozen): the archive published before the switch to
+#   deploy-pages. Copied into the site as-is; nothing writes to it any more.
+# - Images exist only in the deployed artifact. The runner's image cache is
+#   restored between runs, and anything missing is re-fetched from its museum.
+#
+# Requires: Settings → Pages → Build and deployment → Source: "GitHub Actions",
+# and an ANTHROPIC_API_KEY Actions secret.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch: {}
+
+concurrency:
+  group: daily-morning
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit data/public
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Restore cached images
+        uses: actions/cache@v4
+        with:
+          path: ~/.everydaypassion/images
+          key: images-${{ github.run_id }}
+          restore-keys: images-
+
+      - name: Start from the legacy archive
+        run: cp -r docs _site
+
+      - name: Export today's public site
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run --extra web --extra llm everydaypassion export --out _site --data data/public --base-url /everydaypassion/
+
+      - name: Commit the day's data
+        run: |
+          git config user.name "everydaypassion-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/public
+          if ! git diff --staged --quiet; then
+            git commit -m "Daily morning: $(date -u +%F)"
+            git pull --rebase
+            git push
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

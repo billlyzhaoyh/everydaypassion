@@ -3,11 +3,21 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import sys
 import urllib.request
 from pathlib import Path
 
-_UA = "everydaypassion/0.1 (personal morning ritual)"
+from .. import __version__
+
+# Wikimedia (and others) may block clients whose User-Agent has no contact
+# details. Set EVERYDAYPASSION_CONTACT to a URL or email you're happy to share.
+_CONTACT = os.environ.get("EVERYDAYPASSION_CONTACT", "https://github.com/billlyzhaoyh/everydaypassion")
+_UA = (
+    f"everydaypassion/{__version__} ({_CONTACT}; personal morning ritual) "
+    f"Python-urllib/{sys.version_info.major}.{sys.version_info.minor}"
+)
 
 
 class Http:

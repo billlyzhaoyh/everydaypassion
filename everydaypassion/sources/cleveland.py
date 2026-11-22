@@ -1,6 +1,9 @@
 """ClevelandSource — CC0 artwork from the Cleveland Museum of Art.
 
-Keyless API; `cc0=1&has_image=1` returns full CC0 records with images.
+Keyless API (v4.0); `cc0=1&has_image=1` returns full CC0 records with images.
+Each record also carries `share_license_status` ("CC0" / "Copyrighted" / "Other"),
+which is re-checked client-side so a filter regression can't publish a
+copyrighted image.
 """
 
 from __future__ import annotations
@@ -43,7 +46,8 @@ class ClevelandSource:
     def fetch_artwork(self, date: str, seen: set[str] = frozenset(), public_only: bool = False) -> Artwork:
         skip = (seeding.seed_for(f"{date}:cma-page") % self.max_skip) * 100
         data = self.http.get_json(SEARCH.format(skip=skip))
-        records = data.get("data") or []
+        records = [r for r in data.get("data") or []
+                   if r.get("share_license_status", "CC0") == "CC0"]
         chosen = pick_record(date, records, seen, lambda r: f"cma-{r['id']}", _artist)
         if chosen is None:
             raise ClevelandSourceError("no CC0 artwork found")
@@ -60,6 +64,7 @@ class ClevelandSource:
             medium=chosen.get("technique") or "",
             ref_id=f"cma-{chosen['id']}",
             image_path=cache_image(self.http, self.image_dir, image, f"cma-{chosen['id']}"),
+            image_url=image,
             curator_note=note,
             details=details_from(chosen, _DETAILS),
         )

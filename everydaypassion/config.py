@@ -15,7 +15,11 @@ from .builder import DayBuilder
 from .library import CuratedLibrary
 from .store import PackageStore
 
-# Load a local .env (e.g. ANTHROPIC_API_KEY) once, on import.
+# Load a local .env (e.g. ANTHROPIC_API_KEY) once, on import. load_dotenv() never
+# overrides a variable that already exists, so drop an *empty* key first (older
+# LaunchAgent plists set ANTHROPIC_API_KEY="") — otherwise it would hide .env's key.
+if not os.environ.get("ANTHROPIC_API_KEY"):
+    os.environ.pop("ANTHROPIC_API_KEY", None)
 try:
     from dotenv import load_dotenv
 
@@ -64,13 +68,15 @@ def public_site(base_url: str = "/everydaypassion/") -> SiteConfig:
 
 
 def home() -> Path:
-    return Path(os.environ.get("EVERYDAYPASSION_HOME", Path.home() / ".everydaypassion"))
+    # dotenv doesn't expand "~", so a .env value like ~/.everydaypassion needs it here.
+    env = os.environ.get("EVERYDAYPASSION_HOME")
+    return Path(env).expanduser().resolve() if env else Path.home() / ".everydaypassion"
 
 
 def curated_root() -> Path:
     env = os.environ.get("EVERYDAYPASSION_CURATED")
     if env:
-        return Path(env)
+        return Path(env).expanduser().resolve()
     return Path(__file__).resolve().parent.parent / "data" / "curated"
 
 

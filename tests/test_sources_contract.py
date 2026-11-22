@@ -2,7 +2,7 @@
 
 These verify request shape and parsing against recorded-style responses, so the
 suite stays fast and offline-deterministic. The deterministic core logic is
-covered separately in test_picker / test_store / test_builder.
+covered separately in test_seeding / test_store / test_builder.
 """
 
 import json
@@ -73,6 +73,8 @@ def test_met_prefers_a_named_artist_over_unknown():
     })
     art = MetSource(image_dir="/tmp/edp-test", http=http, max_probe=10).fetch_artwork("2026-06-19")
     assert art.artist == "A Painter"
+    # only the returned work's image is downloaded, never the skipped candidate's
+    assert [r for r in http.requested if isinstance(r, tuple)] == [("download", "u")]
 
 
 def test_met_falls_back_to_unnamed_when_no_named_artist():
@@ -128,6 +130,32 @@ def test_poetry_taste_gate_rejects_and_redraws():
     assert poem.title == "Worthy"
 
 
+def test_poetry_one_poets_outage_moves_on_to_the_next():
+    class FlakyHttp(FakeHttp):
+        def get_json(self, url):
+            if "Down" in url:
+                raise TimeoutError("PoetryDB timed out")
+            return super().get_json(url)
+
+    http = FlakyHttp({"/author/Up": [{"title": "Survivor", "author": "Up", "lines": ["x"]}]})
+    for day in range(1, 8):  # whichever order the poets come in, the day survives
+        poem = PoetrySource(http=http, authors=["Down", "Up"]).fetch_poem(f"2026-06-{day:02d}")
+        assert poem.title == "Survivor"
+
+
+def test_poetry_taste_gate_calls_are_capped_and_cached():
+    http = FakeHttp({"/author/": [
+        {"title": f"P{i}", "author": "A Poet", "lines": [str(i)]} for i in range(10)]})
+    calls = []
+    gate = lambda lines: calls.append(lines) or False  # rejects everything
+    src = PoetrySource(http=http, authors=["A Poet"], taste_gate=gate, max_gate_calls=3)
+    first = src.fetch_poem("2026-06-19")
+    assert len(calls) == 3  # budget spent, then the next candidate is accepted
+    again = src.fetch_poem("2026-06-19")  # e.g. the builder's retry
+    assert len(calls) == 3  # cached verdicts: no new model calls
+    assert again.title == first.title
+
+
 # ---- new museum sources, pool, and curated modern art -------------------
 def test_artic_prefers_named_public_domain_work():
     http = FakeHttp({
@@ -149,8 +177,21 @@ def test_artic_prefers_named_public_domain_work():
     # curator text is captured for grounding, with markup stripped
     assert art.details["Curator's summary"] == "One of three versions of his Arles bedroom."
     assert art.details["Curatorial description"] == "Perhaps the most famous bedroom in art."
-    # the description becomes the displayable curator note (markup stripped)
+    # the description becomes the displayable curator note (markup stripped),
+    # credited under its own licence (CC BY 4.0, unlike the CC0 image)
     assert art.curator_note == "Perhaps the most famous bedroom in art."
+    assert art.curator_note_license == "CC BY 4.0"
+    assert art.license == "CC0"
+
+
+def test_artic_stays_within_the_paging_window():
+    http = FakeHttp({"api.artic.edu": {"data": [
+        {"id": 2, "title": "T", "artist_title": "A", "image_id": "b"}]}})
+    for day in range(1, 29):
+        ArticSource("/tmp/edp-test", http=http).fetch_artwork(f"2026-02-{day:02d}")
+    pages = [int(u.split("page=")[1]) for u in http.requested
+             if isinstance(u, str) and "page=" in u]
+    assert pages and max(pages) <= 10
 
 
 def test_cleveland_extracts_artist_name_and_image():
@@ -179,6 +220,21 @@ def test_cleveland_extracts_artist_name_and_image():
     )
 
 
+def test_cleveland_skips_records_not_marked_cc0():
+    http = FakeHttp({
+        "clevelandart.org": {
+            "data": [
+                {"id": 1, "title": "Copyrighted", "share_license_status": "Copyrighted",
+                 "creators": [{"description": "Someone (American)"}]},
+                {"id": 2, "title": "Open", "share_license_status": "CC0",
+                 "creators": [{"description": "Another (American)"}]},
+            ],
+        },
+    })
+    art = ClevelandSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.title == "Open"
+
+
 def test_smk_parses_cc0_record_with_image():
     http = FakeHttp({
         "api.smk.dk": {
@@ -194,7 +250,7 @@ def test_smk_parses_cc0_record_with_image():
     assert art.title == "Overraskelsen"
     assert art.artist == "Ugo da Carpi"
     assert art.ref_id == "smk-KKS1"
-    assert art.license == "CC0"
+    assert art.license == "Public Domain Mark 1.0"
     assert art.public_ok is True
 
 
@@ -259,3 +315,29 @@ def test_curated_modern_art_picks_and_resolves_image(tmp_path):
     # a public build excludes the copyrighted modern piece
     with pytest.raises(LookupError):
         CuratedModernArt(tmp_path, images).fetch_artwork("2026-06-19", public_only=True)
+
+
+def test_taste_gate_uses_the_small_model_and_tolerates_markdown():
+    from types import SimpleNamespace
+
+    from everydaypassion.sources.reflection import ReflectionWriter
+
+    sent = {}
+
+    class FakeMessages:
+        def __init__(self, reply):
+            self.reply = reply
+
+        def create(self, **kw):
+            sent.update(kw)
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=self.reply)])
+
+    def writer(reply):
+        return ReflectionWriter(client=SimpleNamespace(messages=FakeMessages(reply)),
+                                gate_model="small-model")
+
+    assert writer("**YES**").taste_ok(["a line"]) is True
+    assert sent["model"] == "small-model"
+    assert sent["thinking"] == {"type": "disabled"}
+    assert writer("Yes.").taste_ok(["a line"]) is True
+    assert writer("NO").taste_ok(["a line"]) is False

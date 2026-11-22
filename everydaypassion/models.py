@@ -21,9 +21,16 @@ class Artwork:
     ref_id: str
     image_path: str | None = None
     artist_url: str | None = None
+    # The source's own image URL, kept so a published day can re-fetch its image
+    # later (the static deploy rebuilds the site without committing images).
+    image_url: str | None = None
     # The museum's own publishable note about the work. When present and substantial,
     # it's shown verbatim (attributed) and the LLM is skipped entirely.
     curator_note: str = ""
+    # Set when the curator note carries a different licence from the artwork
+    # (e.g. AIC's ``description`` is CC BY 4.0 while the image is CC0).
+    curator_note_license: str = ""
+    curator_note_license_url: str = ""
     # Source-authored grounding facts (catalogue label, culture, credit line, …)
     # keyed by a human label. Used only as input to the LLM fallback when there's
     # no curator_note; museums that expose metadata populate this.
@@ -49,6 +56,8 @@ class Poem:
 class Reflection:
     text: str
     grounded_in: list[str] = field(default_factory=list)
+    license: str = ""
+    license_url: str = ""
 
 
 @dataclass

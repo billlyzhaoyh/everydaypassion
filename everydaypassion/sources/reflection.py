@@ -12,10 +12,14 @@ Uses the Anthropic SDK; the client is imported lazily so the package imports
 from __future__ import annotations
 
 import os
+import re
 
 from ..models import Artwork, Poem
 
 DEFAULT_MODEL = os.environ.get("EVERYDAYPASSION_MODEL", "claude-opus-4-8")
+# The taste gate is a one-word YES/NO screen: a small model is plenty.
+DEFAULT_GATE_MODEL = os.environ.get("EVERYDAYPASSION_GATE_MODEL", "claude-haiku-5-5")
+_YES = re.compile(r"\byes\b", re.IGNORECASE)
 
 _REFLECTION_SYSTEM = (
     "You write a short, factual background note about an artwork — the kind of "
@@ -61,8 +65,10 @@ _TASTE_SYSTEM = (
 
 
 class ReflectionWriter:
-    def __init__(self, model: str = DEFAULT_MODEL, client=None, api_key: str | None = None):
+    def __init__(self, model: str = DEFAULT_MODEL, client=None, api_key: str | None = None,
+                 gate_model: str = DEFAULT_GATE_MODEL):
         self.model = model
+        self.gate_model = gate_model
         self._client = client
         self._api_key = api_key
 
@@ -109,13 +115,16 @@ class ReflectionWriter:
     def taste_ok(self, lines: list[str]) -> bool:
         poem = "\n".join(lines).strip()
         resp = self._messages().create(
-            model=self.model,
-            max_tokens=8,
+            model=self.gate_model,
+            max_tokens=16,
+            # Thinking off so the tiny budget goes to the one-word answer.
+            thinking={"type": "disabled"},
             output_config={"effort": "low"},
             system=_TASTE_SYSTEM,
             messages=[{"role": "user", "content": poem}],
         )
-        return self._text(resp).strip().lower().startswith("y")
+        # Tolerate "Yes.", "**YES**" etc.
+        return bool(_YES.search(self._text(resp)))
 
     # ---- helpers --------------------------------------------------------
     def _messages(self):

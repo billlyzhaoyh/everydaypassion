@@ -8,12 +8,13 @@ nothing lingers in the background.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import os
 import signal
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,6 +26,18 @@ IDLE_SHUTDOWN_SECONDS = int(os.environ.get("EVERYDAYPASSION_IDLE_SECONDS", "1800
 
 _today = render.today
 _pretty = render.pretty
+
+
+def _valid_date(date: str) -> str:
+    """Reject anything that isn't a canonical, non-future ISO date *before* it can
+    be built or favorited — a junk name would be persisted and break the archive."""
+    try:
+        parsed = datetime.date.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="not a date") from None
+    if parsed.isoformat() != date or date > _today():
+        raise HTTPException(status_code=404, detail="no morning for that date")
+    return date
 
 
 def create_app(online: bool = True, site: SiteConfig = LOCAL) -> FastAPI:
@@ -59,7 +72,7 @@ def create_app(online: bool = True, site: SiteConfig = LOCAL) -> FastAPI:
 
     @app.get("/day/{date}", response_class=HTMLResponse)
     def day(date: str):
-        return day_html(date)
+        return day_html(_valid_date(date))
 
     @app.get("/archive", response_class=HTMLResponse)
     def archive():
@@ -79,7 +92,7 @@ def create_app(online: bool = True, site: SiteConfig = LOCAL) -> FastAPI:
 
     @app.post("/favorite/{date}")
     def favorite(date: str):
-        return JSONResponse({"favorited": store.toggle_favorite(date)})
+        return JSONResponse({"favorited": store.toggle_favorite(_valid_date(date))})
 
     @app.get("/healthz")
     def healthz():

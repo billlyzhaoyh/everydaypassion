@@ -8,6 +8,7 @@ library — is fully testable with fakes and no network.
 
 from __future__ import annotations
 
+import threading
 from typing import Protocol
 
 from .library import CuratedLibrary
@@ -57,40 +58,60 @@ class DayBuilder:
         self.reflection = reflection
         self.retries = max(1, retries)
         self.public_only = public_only
+        # The server runs sync routes in a threadpool: serialize builds so a reload
+        # during a slow first build waits for it instead of building a second package.
+        self._lock = threading.Lock()
 
     def ensure(self, date: str) -> DayPackage:
         """Return the package for ``date``, building it once if missing.
-        A built date is frozen and never rebuilt."""
-        if self.store.has(date):
-            return self.store.read(date)
-        pkg = self.build(date)
-        self.store.write(pkg)
-        self.store.mark_seen(pkg.artwork.ref_id, pkg.poem.ref_id)
-        return pkg
 
-    def build(self, date: str) -> DayPackage:
-        seen = self.store.seen_ids()
-        artwork = self._fetch(
+        A complete build is frozen and never rebuilt. A degraded one (a live source
+        fell back to the curated library, or a reflection failed) is kept but
+        retried on later visits until a complete build replaces it."""
+        with self._lock:
+            stored = self.store.read(date) if self.store.has(date) else None
+            if stored is not None and stored.frozen:
+                return stored
+            pkg = self.build(date)
+            if stored is not None and not pkg.frozen:
+                return stored  # still degraded — keep the page stable until a full build
+            if not self.store.write(pkg, overwrite=stored is not None):
+                return self.store.read(date)  # another process wrote it first
+            self.store.mark_seen(pkg.artwork.ref_id, pkg.poem.ref_id)
+            return pkg
+
+    def build(self, date: str, seen: set[str] | None = None) -> DayPackage:
+        """Assemble a package. ``seen`` overrides the store's seen log (the public
+        export passes the published site's own log)."""
+        if seen is None:
+            seen = self.store.seen_ids()
+        artwork, art_ok = self._fetch(
             date, seen, "artwork",
             self.met.fetch_artwork if self.met else None,
             self.library.get_artwork,
         )
-        poem = self._fetch(
+        poem, poem_ok = self._fetch(
             date, seen, "poem",
             self.poetry.fetch_poem if self.poetry else None,
             self.library.get_poem,
+        )
+        artwork_reflection = self._artwork_reflection(artwork)
+        poem_reflection = self._reflect(
+            poem.source,
+            lambda: self.wiki.facts_for_poet(poem),
+            lambda facts: self.reflection.write_poem(poem, facts),
+        )
+        reflecting = self.wiki is not None and self.reflection is not None
+        complete = art_ok and poem_ok and (
+            not reflecting or (artwork_reflection is not None and poem_reflection is not None)
         )
         return DayPackage(
             date=date,
             artwork=artwork,
             poem=poem,
-            artwork_reflection=self._artwork_reflection(artwork),
-            poem_reflection=self._reflect(
-                poem.source,
-                lambda: self.wiki.facts_for_poet(poem),
-                lambda facts: self.reflection.write_poem(poem, facts),
-            ),
-            frozen=True,
+            artwork_reflection=artwork_reflection,
+            poem_reflection=poem_reflection,
+            frozen=complete,
         )
 
     def _artwork_reflection(self, artwork: Artwork) -> Reflection | None:
@@ -98,7 +119,11 @@ class DayBuilder:
         no LLM, works even offline. Otherwise the writer composes from facts."""
         note = (artwork.curator_note or "").strip()
         if len(note) >= MIN_CURATOR_NOTE:
-            return Reflection(text=note, grounded_in=[artwork.source])
+            return Reflection(
+                text=note, grounded_in=[artwork.source],
+                license=artwork.curator_note_license,
+                license_url=artwork.curator_note_license_url,
+            )
         return self._reflect(
             artwork.source,
             lambda: self.wiki.facts_for(artwork),
@@ -108,15 +133,16 @@ class DayBuilder:
     # ---- content with retry → fallback ----------------------------------
     def _fetch(self, date: str, seen: set[str], kind: str, live, fallback):
         """Fetch from the live source (with retries), falling back to the
-        curated library if it's absent or fails."""
+        curated library if it's absent or fails. Returns ``(item, ok)`` where
+        ``ok`` is False when a configured live source failed."""
         if live is not None:
             try:
                 return self._retry(
                     lambda: live(date=date, seen=seen, public_only=self.public_only)
-                )
+                ), True
             except Exception:
-                pass
-        return fallback(f"{date}:{kind}", public_only=self.public_only)
+                return fallback(f"{date}:{kind}", public_only=self.public_only), False
+        return fallback(f"{date}:{kind}", public_only=self.public_only), True
 
     def _reflect(self, source: str, fetch_facts, write) -> Reflection | None:
         """Ground a reflection in real facts, returning None if the facts or the
