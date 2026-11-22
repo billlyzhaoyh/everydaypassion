@@ -16,6 +16,7 @@ from everydaypassion.sources.curated import CuratedModernArt
 from everydaypassion.sources.met import MetSource
 from everydaypassion.sources.poetry import PoetrySource
 from everydaypassion.sources.pool import SourcePool
+from everydaypassion.sources.rijks import RijksSource
 from everydaypassion.sources.smk import SmkSource
 from everydaypassion.sources.vam import VamSource
 
@@ -341,3 +342,105 @@ def test_taste_gate_uses_the_small_model_and_tolerates_markdown():
     assert sent["thinking"] == {"type": "disabled"}
     assert writer("Yes.").taste_ok(["a line"]) is True
     assert writer("NO").taste_ok(["a line"]) is False
+
+
+def _rijks_object(rights, creator, title):
+    en = [{"id": "http://vocab.getty.edu/aat/300388277"}]
+    return {
+        "identified_by": [{"type": "Name", "content": title, "language": en}],
+        "produced_by": {
+            "timespan": {"identified_by": [{"content": "1626", "language": en}]},
+            "referred_to_by": [{"content": creator, "language": en,
+                                "classified_as": [{"id": "http://vocab.getty.edu/aat/300435416"}]}],
+            "part": [{"carried_out_by": [{"notation": [{"@language": "en", "@value": creator}],
+                                          "equivalent": [{"id": "http://www.wikidata.org/entity/Q5598"}]}]}],
+        },
+        "referred_to_by": [{"content": "oil on panel", "language": en,
+                            "classified_as": [{"id": "http://vocab.getty.edu/aat/300435429"}]}],
+        "subject_of": [{"digitally_carried_by": [{
+            "access_point": [{"id": "https://iiif.micr.io/abc/full/max/0/default.jpg"}],
+            "referred_to_by": [{"content": rights}]}]}],
+    }
+
+
+def test_rijks_takes_only_free_images_and_parses_linked_art():
+    http = FakeHttp({
+        "search/collection": {"orderedItems": [{"id": "https://id.rijksmuseum.nl/1"},
+                                               {"id": "https://id.rijksmuseum.nl/2"}]},
+        "data.rijksmuseum.nl/1": _rijks_object(
+            "https://rightsstatements.org/vocab/InC/1.0/", "Karel Appel", "In copyright"),
+        "data.rijksmuseum.nl/2": _rijks_object(
+            "https://creativecommons.org/publicdomain/mark/1.0/", "Rembrandt van Rijn",
+            "Tobit and Anna with the Kid"),
+    })
+    art = RijksSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19", public_only=True)
+    assert art.title == "Tobit and Anna with the Kid"
+    assert art.artist == "Rembrandt van Rijn"
+    assert art.license == "Public Domain Mark 1.0" and art.public_ok is True
+    assert art.medium == "oil on panel" and art.date == "1626"
+    assert art.ref_id == "rijks-2"
+    assert art.image_url == "https://iiif.micr.io/abc/full/843,/0/default.jpg"
+    assert art.artist_url == "http://www.wikidata.org/entity/Q5598"
+
+
+# ---- Standard Ebooks (poetry + prose) -----------------------------------
+_OPF = ('<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+        '<metadata><dc:creator id="author">{author}</dc:creator></metadata></package>')
+_X = ('<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">'
+      '<body>{body}</body></html>')
+
+
+class FakeTextHttp:
+    def __init__(self, pages):
+        self.pages = pages
+
+    def get_text(self, url):
+        for key, text in self.pages.items():
+            if url.endswith(key):
+                return text
+        raise AssertionError(f"unexpected URL: {url}")
+
+
+def _poem(pid, n):
+    lines = "<br/>".join(f"<span>line {i}</span>" for i in range(n))
+    return f'<article id="{pid}" epub:type="z3998:poem"><h2>{pid}</h2><p>{lines}</p></article>'
+
+
+def test_standard_ebooks_poetry_extracts_a_short_poem():
+    from everydaypassion.sources.standardebooks import LICENSE, StandardEbooksPoetry
+
+    toc = _X.format(body='<nav><a href="text/titlepage.xhtml">Titlepage</a>'
+                         '<a href="text/poetry.xhtml#epic">Epic</a>'
+                         '<a href="text/poetry.xhtml#gem">Dust of Snow</a></nav>')
+    http = FakeTextHttp({
+        "content.opf": _OPF.format(author="Robert Frost"),
+        "toc.xhtml": toc,
+        "text/poetry.xhtml": _X.format(body=_poem("epic", 80) + _poem("gem", 8)),
+    })
+    poem = StandardEbooksPoetry(http=http, collections=["robert-frost_new-hampshire"]) \
+        .fetch_poem("2026-06-19")
+    assert poem.title == "Dust of Snow" and poem.author == "Robert Frost"
+    assert poem.lines == [f"line {i}" for i in range(8)]
+    assert poem.license == LICENSE and poem.public_ok is True
+
+
+def test_standard_ebooks_prose_keeps_a_story_of_reading_length():
+    from everydaypassion.sources.standardebooks import StandardEbooksProse
+
+    para = "<p>" + " ".join(["word"] * 100) + "</p>"
+    toc = _X.format(body='<nav><a href="text/long.xhtml">Long</a>'
+                         '<a href="text/hands.xhtml">Hands</a>'
+                         '<a href="text/hands.xhtml#hands-1">I</a></nav>')
+    http = FakeTextHttp({
+        "content.opf": _OPF.format(author="Sherwood Anderson"),
+        "toc.xhtml": toc,
+        "text/long.xhtml": _X.format(body=f'<article epub:type="se:short-story">{para * 60}</article>'),
+        "text/hands.xhtml": _X.format(body='<article epub:type="se:short-story"><h2>Hands</h2>'
+                                            f'<section id="hands-1">{para * 12}</section></article>'),
+    })
+    prose = StandardEbooksProse(http=http, collections=["sherwood-anderson_winesburg-ohio"]) \
+        .fetch_prose("2026-06-19")
+    assert prose.title == "Hands" and prose.kind == "story"
+    assert prose.word_count == 1200 and len(prose.paragraphs) == 12
+    assert prose.minutes == 5
+    assert prose.source_url == "https://github.com/standardebooks/sherwood-anderson_winesburg-ohio"

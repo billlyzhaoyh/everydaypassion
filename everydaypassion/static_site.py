@@ -28,7 +28,7 @@ import shutil
 from pathlib import Path
 
 from . import config
-from .builder import DayBuilder
+from .builder import DayBuilder, pkg_ref_ids
 from .config import SiteConfig
 from .models import Artwork
 from .store import PackageStore
@@ -67,19 +67,22 @@ def write_site(out_dir: Path, builder: DayBuilder, images_dir: Path, site: SiteC
                 continue  # a legacy page from before deploy-pages — frozen as is
         # always fresh + public_only, seen = the public site's own log
         pkg = builder.build(date, seen=published.seen_ids())
-        if site.public_only and not (pkg.artwork.public_ok and pkg.poem.public_ok):
+        if site.public_only and not (pkg.artwork.public_ok and pkg.poem.public_ok
+                                     and (pkg.story is None or pkg.story.public_ok)):
             warnings.append(f"{date}: skipped, non-public content slipped through")
             continue
-        if not (pkg.artwork_reflection and pkg.poem_reflection):
+        if not (pkg.artwork_reflection and pkg.poem_reflection
+                and (pkg.story is None or pkg.story_reflection)):
             warnings.append(
                 f"{date}: missing reflection "
-                f"(artwork={bool(pkg.artwork_reflection)} poem={bool(pkg.poem_reflection)})"
+                f"(artwork={bool(pkg.artwork_reflection)} poem={bool(pkg.poem_reflection)}"
+                + (f" story={bool(pkg.story_reflection)}" if pkg.story else "") + ")"
             )
         if stored is not None and not pkg.frozen and not rebuild:
             warnings.append(f"{date}: rebuild still incomplete; keeping the published version")
             continue
         published.write(pkg, overwrite=True)
-        published.mark_seen(pkg.artwork.ref_id, pkg.poem.ref_id)
+        published.mark_seen(*pkg_ref_ids(pkg))
 
     for date in published.archive():
         pkg = published.read(date)

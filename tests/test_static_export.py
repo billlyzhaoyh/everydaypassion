@@ -187,3 +187,18 @@ def test_export_refetches_an_image_missing_from_the_cache(tmp_path):
     assert fetched == ["https://images.example/met-1.jpg"]
     assert url == "/edp/images/met-1.jpg"
     assert (dest / "met-1.jpg").exists()
+
+
+def test_render_shows_the_story_collapsed_with_reading_time():
+    from everydaypassion.models import Prose
+
+    pkg = _pkg()
+    pkg.story = Prose("Standard Ebooks", "Public domain", True, "Hands", "Sherwood Anderson",
+                      paragraphs=["Upon the half-decayed veranda.", "Second paragraph."],
+                      word_count=2300, source_url="https://github.com/standardebooks/x")
+    pkg.story_reflection = Reflection("About Anderson.", ["Standard Ebooks"])
+    html = render.render_day(pkg, site=LOCAL, date="2026-06-20", pretty="Saturday",
+                             image_url=None)
+    assert "Today's story" in html and "about 10 min" in html
+    assert "<p>Upon the half-decayed veranda.</p>" in html
+    assert "About Anderson." in html

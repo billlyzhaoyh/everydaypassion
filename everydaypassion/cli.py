@@ -33,6 +33,9 @@ def cmd_build(args) -> int:
     pkg = builder.ensure(date)
     print(f"{date}: {pkg.artwork.title} — {pkg.artwork.artist}")
     print(f"         poem: {pkg.poem.title} — {pkg.poem.author}")
+    if pkg.story:
+        print(f"         {pkg.story.kind}: {pkg.story.title} — {pkg.story.author} "
+              f"(~{pkg.story.minutes} min)")
     print(f"         reflections: artwork={'yes' if pkg.artwork_reflection else 'no'}"
           f" poem={'yes' if pkg.poem_reflection else 'no'}")
     return 0

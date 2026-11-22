@@ -135,6 +135,7 @@ body {
 .rule { height: 1px; background: var(--line); margin: 32px 0; }
 
 .poem .label,
+.story .label,
 .reflection .label {
   font-size: 0.62rem;
   letter-spacing: 0.24em;
@@ -142,7 +143,8 @@ body {
   color: var(--accent);
   margin: 0 0 14px;
 }
-.poem h2 {
+.poem h2,
+.story h2 {
   font-family: var(--display);
   font-weight: 400;
   font-style: italic;
@@ -156,7 +158,8 @@ body {
   white-space: pre-line;
   margin: 0;
 }
-.poem .by {
+.poem .by,
+.story .by {
   font-size: 0.66rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -189,6 +192,21 @@ details[open] summary .mark { transform: rotate(45deg); }
   padding-top: 16px;
 }
 .reflection-body p { margin: 0 0 14px; }
+.story .read { margin-top: 18px; }
+.prose {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.8;
+  padding-top: 16px;
+}
+.prose p { margin: 0 0 1em; }
+.prose .src {
+  font-family: var(--meta);
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .reflection-body .src {
   font-family: var(--meta);
   font-size: 0.6rem;

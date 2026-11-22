@@ -48,6 +48,26 @@
 
 {{ reveal(pkg.poem_reflection) }}
 
+{% if pkg.story %}
+<div class="rule"></div>
+
+<div class="story">
+  <p class="label">Today's {{ pkg.story.kind }}</p>
+  <h2>{{ pkg.story.title }}</h2>
+  <p class="by">{{ pkg.story.author }}{% if pkg.story.year %} · {{ pkg.story.year }}{% endif %} · {{ pkg.story.license }}</p>
+  <details class="read">
+    <summary><span class="mark">✦</span> Read it · about {{ pkg.story.minutes }} min</summary>
+    <div class="prose">
+      {% for para in pkg.story.paragraphs %}<p>{{ para }}</p>
+      {% endfor %}
+      {% if pkg.story.source_url %}<p class="src"><a href="{{ pkg.story.source_url }}">Text from {{ pkg.story.source }}</a></p>{% endif %}
+    </div>
+  </details>
+</div>
+
+{{ reveal(pkg.story_reflection) }}
+{% endif %}
+
 <div class="chrome">
   <span>{{ pretty }}</span>
   {% if site.interactive %}

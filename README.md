@@ -64,7 +64,7 @@ an exported key the agent uses the key in `.env`. Test it now with
 | `store` | dated packages (freeze-once), seen-IDs, favorites |
 | `library` | curated local corpus + offline fallback |
 | `builder` | orchestration: generate-if-missing, retry → fallback |
-| `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, V&A) + PoetryDB, Wikipedia, Claude reflections |
+| `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, Rijksmuseum, V&A) + PoetryDB, Wikipedia, Claude reflections |
 | `web/` | render layer + FastAPI server (today / archive / favorites), idle self-shutdown |
 | `static_site` | public static export for GitHub Pages |
 

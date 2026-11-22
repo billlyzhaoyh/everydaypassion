@@ -53,6 +53,30 @@ class Poem:
 
 
 @dataclass
+class Prose:
+    """A short story or essay — a 5–15 minute read, kept whole."""
+
+    source: str
+    license: str
+    public_ok: bool
+    title: str
+    author: str
+    kind: str = "story"  # "story" | "essay"
+    paragraphs: list[str] = field(default_factory=list)
+    word_count: int = 0
+    year: str | None = None
+    source_url: str | None = None
+
+    @property
+    def ref_id(self) -> str:
+        return f"{self.author}::{self.title}"
+
+    @property
+    def minutes(self) -> int:
+        return max(1, round(self.word_count / 230))
+
+
+@dataclass
 class Reflection:
     text: str
     grounded_in: list[str] = field(default_factory=list)
@@ -68,6 +92,9 @@ class DayPackage:
     artwork_reflection: Reflection | None = None
     poem_reflection: Reflection | None = None
     frozen: bool = True
+    # Optional extra modality; absent in older packages.
+    story: Prose | None = None
+    story_reflection: Reflection | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -86,4 +113,6 @@ class DayPackage:
             artwork_reflection=refl("artwork_reflection") or refl("reflection"),
             poem_reflection=refl("poem_reflection"),
             frozen=d.get("frozen", True),
+            story=Prose(**d["story"]) if d.get("story") else None,
+            story_reflection=refl("story_reflection"),
         )

@@ -34,6 +34,11 @@ class Http:
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             return json.load(resp)
 
+    def get_text(self, url: str) -> str:
+        req = urllib.request.Request(url, headers=self._headers())
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            return resp.read().decode("utf-8")
+
     def download(self, url: str, dest: str | Path) -> Path:
         dest = Path(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)

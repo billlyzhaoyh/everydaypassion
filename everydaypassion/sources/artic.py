@@ -30,9 +30,9 @@ _DETAILS = {
     "Credit line": "credit_line",
 }
 DEFAULT_IIIF = "https://www.artic.edu/iiif/2"
-# AIC asks clients to identify themselves. Its search refuses deep paging: in the
-# published history every request for page <= 9 (limit=100) worked and every one
-# for page >= 11 failed, so stay inside the first 1,000 results.
+# AIC asks clients to identify themselves. Its search serves only the first 1,000
+# results: page 10 at limit=100 works, page 11 returns 403 "Invalid number of
+# results" (checked live 2026-11-22). So pages run 1..10.
 AIC_UA = {"AIC-User-Agent": "everydaypassion (personal morning ritual)"}
 # Per AIC's API licence text, `description` is CC BY 4.0 (all other data is CC0).
 DESCRIPTION_LICENSE = "CC BY 4.0"

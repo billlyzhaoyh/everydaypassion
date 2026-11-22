@@ -2,7 +2,7 @@ import json
 
 from everydaypassion.builder import DayBuilder
 from everydaypassion.library import CuratedLibrary
-from everydaypassion.models import Artwork, Poem
+from everydaypassion.models import Artwork, Poem, Prose
 from everydaypassion.store import PackageStore
 
 
@@ -248,3 +248,48 @@ def test_curator_note_licence_is_carried_to_the_reflection(tmp_path):
                           wiki=FakeWiki(), reflection=FakeReflection())
     refl = builder.ensure("2026-06-19").artwork_reflection
     assert refl.license == "CC BY 4.0"
+
+
+# ---- the optional story slot ---------------------------------------------
+class FakeStory:
+    def __init__(self, fail=False):
+        self.fail = fail
+
+    def fetch_prose(self, date, seen, public_only):
+        if self.fail:
+            raise RuntimeError("GitHub is down")
+        return Prose("Standard Ebooks", "Public domain", True, "Hands", "Sherwood Anderson",
+                     paragraphs=["One.", "Two."], word_count=1200)
+
+
+class StoryWiki(FakeWiki):
+    def facts_for_author(self, item):
+        return {"term": item.author, "summary": "Author facts."}
+
+
+class StoryReflection(FakeReflection):
+    def write_prose(self, prose, facts):
+        return f"A note on {prose.title}."
+
+
+def test_story_slot_is_built_reflected_and_marked_seen(tmp_path):
+    builder, store = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(), wiki=StoryWiki(),
+                              reflection=StoryReflection(), story=FakeStory())
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.story.title == "Hands"
+    assert pkg.story_reflection.text == "A note on Hands."
+    assert pkg.frozen is True
+    assert "Sherwood Anderson::Hands" in store.seen_ids()
+    assert store.read("2026-06-19").story.title == "Hands"  # round-trips through JSON
+
+
+def test_failed_story_leaves_the_slot_empty_and_the_day_unfrozen(tmp_path):
+    builder, _ = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(), story=FakeStory(fail=True))
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.story is None and pkg.frozen is False
+
+
+def test_packages_without_a_story_still_load(tmp_path):
+    builder, store = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry())
+    builder.ensure("2026-06-19")
+    assert store.read("2026-06-19").story is None

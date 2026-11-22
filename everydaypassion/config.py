@@ -93,7 +93,7 @@ def make_store() -> PackageStore:
 def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
     store = make_store()
     library = CuratedLibrary(curated_root())
-    art_source = poem_source = wiki = reflection = None
+    art_source = poem_source = wiki = reflection = story = None
     if online:
         # Imported lazily so the core/offline path needs no network deps.
         from .sources.artic import ArticSource
@@ -103,7 +103,9 @@ def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
         from .sources.poetry import PoetrySource
         from .sources.pool import SourcePool
         from .sources.reflection import ReflectionWriter
+        from .sources.rijks import RijksSource
         from .sources.smk import SmkSource
+        from .sources.standardebooks import StandardEbooksPoetry, StandardEbooksProse
         from .sources.vam import VamSource
         from .sources.wikipedia import WikipediaClient
 
@@ -121,16 +123,22 @@ def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
                 ArticSource(images),
                 ClevelandSource(images),
                 SmkSource(images),
+                RijksSource(images),
                 VamSource(images),  # personal-use only; skips itself in a public build
                 CuratedModernArt(curated, images),
             ],
             "art",
         )
         poem_source = SourcePool(
-            [PoetrySource(taste_gate=taste_gate), CuratedModernPoems(curated)],
+            [
+                PoetrySource(taste_gate=taste_gate),
+                StandardEbooksPoetry(taste_gate=taste_gate),
+                CuratedModernPoems(curated),
+            ],
             "poem",
         )
+        story = StandardEbooksProse()
     return DayBuilder(
         store=store, library=library, met=art_source, poetry=poem_source,
-        wiki=wiki, reflection=reflection, public_only=public_only,
+        wiki=wiki, reflection=reflection, public_only=public_only, story=story,
     )
