@@ -68,15 +68,17 @@ def write_site(out_dir: Path, builder: DayBuilder, images_dir: Path, site: SiteC
         # always fresh + public_only, seen = the public site's own log
         pkg = builder.build(date, seen=published.seen_ids())
         if site.public_only and not (pkg.artwork.public_ok and pkg.poem.public_ok
-                                     and (pkg.story is None or pkg.story.public_ok)):
+                                     and all(x is None or x.public_ok for x in (pkg.story, pkg.music))):
             warnings.append(f"{date}: skipped, non-public content slipped through")
             continue
         if not (pkg.artwork_reflection and pkg.poem_reflection
-                and (pkg.story is None or pkg.story_reflection)):
+                and (pkg.story is None or pkg.story_reflection)
+                and (pkg.music is None or pkg.music_reflection)):
             warnings.append(
                 f"{date}: missing reflection "
                 f"(artwork={bool(pkg.artwork_reflection)} poem={bool(pkg.poem_reflection)}"
-                + (f" story={bool(pkg.story_reflection)}" if pkg.story else "") + ")"
+                + (f" story={bool(pkg.story_reflection)}" if pkg.story else "")
+                + (f" music={bool(pkg.music_reflection)}" if pkg.music else "") + ")"
             )
         if stored is not None and not pkg.frozen and not rebuild:
             warnings.append(f"{date}: rebuild still incomplete; keeping the published version")

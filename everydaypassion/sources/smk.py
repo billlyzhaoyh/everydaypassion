@@ -26,6 +26,15 @@ class SmkSourceError(RuntimeError):
     pass
 
 
+# SMK credits unattributed works to "Ubekendt" (Danish: unknown).
+_UNKNOWN = {"ubekendt", "unknown", "anonym"}
+
+
+def _named(record: dict) -> str:
+    name = _first(record.get("artist"))
+    return "" if name.strip().lower() in _UNKNOWN else name
+
+
 def _first(value, key=None):
     if not value:
         return ""
@@ -43,7 +52,7 @@ class SmkSource:
         offset = (seeding.seed_for(f"{date}:smk-page") % self.max_page) * 100
         data = self.http.get_json(SEARCH.format(offset=offset))
         records = data.get("items") or []
-        chosen = pick_record(date, records, seen, lambda r: f"smk-{r['object_number']}", lambda r: r.get("artist"))
+        chosen = pick_record(date, records, seen, lambda r: f"smk-{r['object_number']}", _named)
         if chosen is None:
             raise SmkSourceError("no public-domain artwork found")
         image = chosen.get("image_thumbnail")
@@ -52,7 +61,7 @@ class SmkSource:
             license="Public Domain Mark 1.0",
             public_ok=True,
             title=_first(chosen.get("titles"), "title") or "Untitled",
-            artist=_first(chosen.get("artist")) or "Unknown",
+            artist=_named(chosen) or "Unknown",
             date=_first(chosen.get("production_date"), "period"),
             medium=_first(chosen.get("techniques")),
             ref_id=f"smk-{chosen['object_number']}",

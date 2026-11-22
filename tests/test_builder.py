@@ -2,7 +2,7 @@ import json
 
 from everydaypassion.builder import DayBuilder
 from everydaypassion.library import CuratedLibrary
-from everydaypassion.models import Artwork, Poem, Prose
+from everydaypassion.models import Artwork, Poem, Prose, Track
 from everydaypassion.store import PackageStore
 
 
@@ -293,3 +293,22 @@ def test_packages_without_a_story_still_load(tmp_path):
     builder, store = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry())
     builder.ensure("2026-06-19")
     assert store.read("2026-06-19").story is None
+
+
+
+def test_music_slot_is_built_reflected_and_round_trips(tmp_path):
+    class FakeMusic:
+        def fetch_track(self, date, seen, public_only):
+            return Track("Wikimedia Commons", "CC0", True, "Aria", "JS Bach and Kimiko Ishizaka",
+                         "https://upload.wikimedia.org/a.mp3", "commons-1")
+
+    class MusicReflection(StoryReflection):
+        def write_music(self, track, facts):
+            return f"A note on {track.title} ({facts['term']})."
+
+    builder, store = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(), wiki=StoryWiki(),
+                              reflection=MusicReflection(), music=FakeMusic())
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.music_reflection.text == "A note on Aria (JS Bach)."  # composer from the credit
+    assert pkg.frozen is True and "commons-1" in store.seen_ids()
+    assert store.read("2026-06-19").music.audio_url == "https://upload.wikimedia.org/a.mp3"

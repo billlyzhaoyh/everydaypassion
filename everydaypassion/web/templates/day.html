@@ -68,6 +68,23 @@
 {{ reveal(pkg.story_reflection) }}
 {% endif %}
 
+{% if pkg.music %}
+<div class="rule"></div>
+
+<div class="music">
+  <p class="label">Today's music</p>
+  <h2>{{ pkg.music.title }}</h2>
+  <audio controls preload="none">
+    <source src="{{ pkg.music.audio_url }}">
+    {% if pkg.music.fallback_audio_url %}<source src="{{ pkg.music.fallback_audio_url }}">{% endif %}
+  </audio>
+  <p class="by">{{ pkg.music.artist }}{% if pkg.music.year %} · {{ pkg.music.year }}{% endif %} · {{ pkg.music.license }}
+    {%- if pkg.music.page_url %} · <a href="{{ pkg.music.page_url }}">{{ pkg.music.source }}</a>{% endif %}</p>
+</div>
+
+{{ reveal(pkg.music_reflection) }}
+{% endif %}
+
 <div class="chrome">
   <span>{{ pretty }}</span>
   {% if site.interactive %}

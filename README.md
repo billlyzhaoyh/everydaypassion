@@ -1,9 +1,10 @@
 # everydaypassion
 
-A personal morning ritual: every day, one painting and one poem, with the story
-behind them a click away. Art from The Met's Open Access collection, poetry from
-the public-domain canon plus a curated modern library, and a short grounded
-reflection written by Claude.
+A personal morning ritual: every day, one painting and one poem — plus a short
+story or essay and a piece of music — with the story behind each a click away.
+Art from open-access museum collections, poetry from the public-domain canon plus
+a curated modern library, fiction and essays from Standard Ebooks, recordings from
+Wikimedia Commons, and a short grounded reflection on each written by Claude.
 
 > "Poetry, beauty, romance, love — these are what we stay alive for." — *Dead Poets Society*
 
@@ -64,7 +65,7 @@ an exported key the agent uses the key in `.env`. Test it now with
 | `store` | dated packages (freeze-once), seen-IDs, favorites |
 | `library` | curated local corpus + offline fallback |
 | `builder` | orchestration: generate-if-missing, retry → fallback |
-| `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, Rijksmuseum, V&A) + PoetryDB, Wikipedia, Claude reflections |
+| `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, Rijksmuseum, V&A); poems (PoetryDB, Standard Ebooks); stories & essays (Standard Ebooks); music (Wikimedia Commons); Wikipedia facts; Claude reflections |
 | `web/` | render layer + FastAPI server (today / archive / favorites), idle self-shutdown |
 | `static_site` | public static export for GitHub Pages |
 
@@ -107,14 +108,34 @@ before that switch and is copied into the site unchanged. To go live:
 
 ## Content & licensing
 
-Every item carries `source` / `license` / `public_ok`. The CC0 / public-domain
-museums (Met, Art Institute, Cleveland, SMK — Public Domain Mark), classic
-public-domain poetry, and Claude's reflections are publishable (the Art
-Institute's own description text is CC BY 4.0 and is credited as such); **the V&A (personal-use license) and curated modern
-art/poems are private-only** (`public_ok: false`). The public build is the same
-generator filtered to `public_ok = true`. See
-[`data/curated/MODERN_POEMS.md`](data/curated/MODERN_POEMS.md) for how to add
+Every item carries `source` / `license` / `public_ok`; the public build is the
+same generator filtered to `public_ok = true`.
+
+- **Publishable:** the CC0 / public-domain museums (Met, Art Institute, Cleveland,
+  SMK and Rijksmuseum — the last two under the Public Domain Mark; Rijksmuseum
+  images marked In Copyright are skipped), PoetryDB's public-domain poems,
+  Standard Ebooks texts (US public domain, CC0 editions), CC0 or
+  rights-holder-dedicated recordings from Commons (Open Goldberg Variations,
+  Musopen's Set Chopin Free), and Claude's reflections. The Art Institute's own
+  description text is CC BY 4.0 and is credited as such.
+- **Private only** (`public_ok: false`): the V&A (personal-use licence), curated
+  modern art/poems, and Commons recordings whose "public domain" status rests on
+  non-US rules (the wider Musopen category).
+
+Music is streamed from Wikimedia (`preload="none"`), never copied into the site.
+See [`data/curated/MODERN_POEMS.md`](data/curated/MODERN_POEMS.md) for how to add
 modern poems.
+
+## Checking the sources
+
+```bash
+.venv/bin/python scripts/check_sources.py [DATE] [--public]
+```
+
+Fetches one item from every source (real network calls, no Claude calls) and
+prints OK/FAIL per source — the quickest way to see why a morning fell back to
+the curated library. APIs do change under us: The Met retired its v1 search on
+2026-10-01, which silently took it out of the rotation until it moved to v1.1.
 
 ## Tests
 

@@ -36,6 +36,8 @@ def cmd_build(args) -> int:
     if pkg.story:
         print(f"         {pkg.story.kind}: {pkg.story.title} — {pkg.story.author} "
               f"(~{pkg.story.minutes} min)")
+    if pkg.music:
+        print(f"         music: {pkg.music.title} — {pkg.music.artist}")
     print(f"         reflections: artwork={'yes' if pkg.artwork_reflection else 'no'}"
           f" poem={'yes' if pkg.poem_reflection else 'no'}")
     return 0

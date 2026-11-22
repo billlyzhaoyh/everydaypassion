@@ -6,6 +6,7 @@ public build is one filter away (see PRD: publish-later readiness).
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 
 
@@ -77,6 +78,28 @@ class Prose:
 
 
 @dataclass
+class Track:
+    """A piece of music, streamed from its source (never copied into the site)."""
+
+    source: str
+    license: str
+    public_ok: bool
+    title: str
+    artist: str  # the credit line as the source gives it (composer and/or performer)
+    audio_url: str
+    ref_id: str
+    fallback_audio_url: str = ""  # the original file when audio_url is a transcode
+    page_url: str = ""
+    year: str | None = None
+    description: str = ""
+
+    @property
+    def author(self) -> str:
+        """Best guess at the composer (first name in the credit), for background lookups."""
+        return re.split(r"\s+(?:and|&)\s+|[,;(]", self.artist)[0].strip() or self.artist
+
+
+@dataclass
 class Reflection:
     text: str
     grounded_in: list[str] = field(default_factory=list)
@@ -95,6 +118,8 @@ class DayPackage:
     # Optional extra modality; absent in older packages.
     story: Prose | None = None
     story_reflection: Reflection | None = None
+    music: Track | None = None
+    music_reflection: Reflection | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -115,4 +140,6 @@ class DayPackage:
             frozen=d.get("frozen", True),
             story=Prose(**d["story"]) if d.get("story") else None,
             story_reflection=refl("story_reflection"),
+            music=Track(**d["music"]) if d.get("music") else None,
+            music_reflection=refl("music_reflection"),
         )

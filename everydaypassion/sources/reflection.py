@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import re
 
-from ..models import Artwork, Poem, Prose
+from ..models import Artwork, Poem, Prose, Track
 
 DEFAULT_MODEL = os.environ.get("EVERYDAYPASSION_MODEL", "claude-opus-4-8")
 # The taste gate is a one-word YES/NO screen: a small model is plenty.
@@ -65,6 +65,20 @@ _PROSE_SYSTEM = (
     "without spoiling its ending. Lead with the most genuinely interesting fact. "
     "Stay strictly faithful to the facts provided — never invent biography or dates; "
     "if a fact isn't given, don't assert it. "
+    "Do not address the reader ('you'), do not set a mood or mention mornings, "
+    "rituals, or contemplation, and avoid generic praise. Plain, precise, informative. "
+    "Output only the note, with no preamble, title, or sign-off."
+)
+
+_MUSIC_SYSTEM = (
+    "You write a short, factual background note about a piece of music and its "
+    "composer — the kind of thing you'd read in good concert programme notes. Given "
+    "the recording's title, credits and description, and real facts about the "
+    "composer, write 2-3 short paragraphs (about 120-150 words): who the composer was "
+    "and why they matter, when and why the piece was written if the facts support it, "
+    "and its form or what to listen for. Lead with the most genuinely interesting fact. "
+    "Stay strictly faithful to the facts provided — never invent biography, dates or "
+    "musical details; if a fact isn't given, don't assert it. "
     "Do not address the reader ('you'), do not set a mood or mention mornings, "
     "rituals, or contemplation, and avoid generic praise. Plain, precise, informative. "
     "Output only the note, with no preamble, title, or sign-off."
@@ -139,6 +153,25 @@ class ReflectionWriter:
             max_tokens=1024,
             output_config={"effort": "low"},
             system=_PROSE_SYSTEM,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return self._text(resp)
+
+    def write_music(self, track: Track, facts: dict) -> str:
+        summary = (facts or {}).get("summary", "").strip()
+        details = [f"Recording: {track.title}", f"Credits: {track.artist}"]
+        if track.year:
+            details.append(f"Date: {track.year}")
+        if track.description:
+            details.append(f"Description: {track.description}")
+        if summary:
+            details.append(f"\nAbout the composer (from Wikipedia):\n{summary}")
+        prompt = "Write the background note from these facts:\n\n" + "\n".join(details)
+        resp = self._messages().create(
+            model=self.model,
+            max_tokens=1024,
+            output_config={"effort": "low"},
+            system=_MUSIC_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )
         return self._text(resp)

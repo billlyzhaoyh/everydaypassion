@@ -12,7 +12,7 @@ import threading
 from typing import Protocol
 
 from .library import CuratedLibrary
-from .models import Artwork, DayPackage, Poem, Prose, Reflection
+from .models import Artwork, DayPackage, Poem, Prose, Reflection, Track
 from .store import PackageStore
 
 # A curator note this long or longer stands on its own — show it verbatim and skip
@@ -32,6 +32,10 @@ class ProseSource(Protocol):
     def fetch_prose(self, date: str, seen: set[str], public_only: bool) -> Prose: ...
 
 
+class TrackSource(Protocol):
+    def fetch_track(self, date: str, seen: set[str], public_only: bool) -> Track: ...
+
+
 class Facts(Protocol):
     def facts_for(self, artwork: Artwork) -> dict: ...
     def facts_for_poet(self, poem: Poem) -> dict: ...
@@ -42,13 +46,15 @@ class ReflectionSource(Protocol):
     def write(self, artwork: Artwork, facts: dict) -> str: ...
     def write_poem(self, poem: Poem, facts: dict) -> str: ...
     def write_prose(self, prose: Prose, facts: dict) -> str: ...
+    def write_music(self, track: Track, facts: dict) -> str: ...
 
 
 def pkg_ref_ids(pkg: DayPackage) -> list[str]:
     """Every item a package shows, for the seen log."""
     ids = [pkg.artwork.ref_id, pkg.poem.ref_id]
-    if pkg.story is not None:
-        ids.append(pkg.story.ref_id)
+    for extra in (pkg.story, pkg.music):
+        if extra is not None:
+            ids.append(extra.ref_id)
     return ids
 
 
@@ -64,6 +70,7 @@ class DayBuilder:
         retries: int = 2,
         public_only: bool = False,
         story: ProseSource | None = None,
+        music: TrackSource | None = None,
     ):
         self.store = store
         self.library = library
@@ -74,6 +81,7 @@ class DayBuilder:
         self.retries = max(1, retries)
         self.public_only = public_only
         self.story = story
+        self.music = music
         # The server runs sync routes in a threadpool: serialize builds so a reload
         # during a slow first build waits for it instead of building a second package.
         self._lock = threading.Lock()
@@ -117,12 +125,16 @@ class DayBuilder:
             lambda: self.wiki.facts_for_poet(poem),
             lambda facts: self.reflection.write_poem(poem, facts),
         )
-        story, story_reflection, story_ok = self._story(date, seen)
+        story, story_reflection, story_ok = self._optional(
+            self.story, "fetch_prose", "write_prose", date, seen)
+        music, music_reflection, music_ok = self._optional(
+            self.music, "fetch_track", "write_music", date, seen)
         reflecting = self.wiki is not None and self.reflection is not None
-        complete = art_ok and poem_ok and story_ok and (
+        complete = art_ok and poem_ok and story_ok and music_ok and (
             not reflecting or (
                 artwork_reflection is not None and poem_reflection is not None
                 and (story is None or story_reflection is not None)
+                and (music is None or music_reflection is not None)
             )
         )
         return DayPackage(
@@ -134,25 +146,28 @@ class DayBuilder:
             frozen=complete,
             story=story,
             story_reflection=story_reflection,
+            music=music,
+            music_reflection=music_reflection,
         )
 
-    def _story(self, date: str, seen: set[str]):
-        """The optional story/essay slot: (prose, reflection, ok). No curated
-        fallback — a failed fetch just leaves the slot empty (and the day unfrozen)."""
-        if self.story is None:
+    def _optional(self, source, fetch: str, write: str, date: str, seen: set[str]):
+        """An optional extra slot (story, music): (item, reflection, ok). There's no
+        curated fallback — a failed fetch leaves the slot empty and the day unfrozen,
+        so it's retried on a later visit."""
+        if source is None:
             return None, None, True
         try:
-            prose = self._retry(
-                lambda: self.story.fetch_prose(date=date, seen=seen, public_only=self.public_only)
+            item = self._retry(
+                lambda: getattr(source, fetch)(date=date, seen=seen, public_only=self.public_only)
             )
         except Exception:
             return None, None, False
         reflection = self._reflect(
-            prose.source,
-            lambda: self.wiki.facts_for_author(prose),
-            lambda facts: self.reflection.write_prose(prose, facts),
+            item.source,
+            lambda: self.wiki.facts_for_author(item),
+            lambda facts: getattr(self.reflection, write)(item, facts),
         )
-        return prose, reflection, True
+        return item, reflection, True
 
     def _artwork_reflection(self, artwork: Artwork) -> Reflection | None:
         """Prefer the museum's own note when it's substantial — shown verbatim,

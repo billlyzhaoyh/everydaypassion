@@ -51,6 +51,9 @@ def test_met_picks_a_public_domain_artwork_with_image():
         },
     })
     art = MetSource(image_dir="/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    # the retired v1/search (410 Gone since 2026-10-01) must not be used
+    assert any("/v1.1/search?" in u for u in http.requested if isinstance(u, str))
+    assert not any("/v1/search" in u for u in http.requested if isinstance(u, str))
     assert art.title == "Wheat Field"
     assert art.artist == "Van Gogh"
     assert art.public_ok is True
@@ -444,3 +447,78 @@ def test_standard_ebooks_prose_keeps_a_story_of_reading_length():
     assert prose.word_count == 1200 and len(prose.paragraphs) == 12
     assert prose.minutes == 5
     assert prose.source_url == "https://github.com/standardebooks/sherwood-anderson_winesburg-ohio"
+
+
+# ---- Wikimedia Commons music ---------------------------------------------
+def _commons_page(pid, licence, url, media="AUDIO"):
+    return {"pageid": pid, "title": f"File:Track {pid}.ogg", "imageinfo": [{
+        "mediatype": media, "url": url, "descriptionurl": f"https://commons.wikimedia.org/wiki/File:{pid}",
+        "extmetadata": {"LicenseShortName": {"value": licence},
+                        "Artist": {"value": "<a href='x'>Frédéric Chopin</a> and Musopen"},
+                        "ObjectName": {"value": f"Nocturne {pid}"}}}]}
+
+
+def test_commons_music_streams_a_transcode_and_respects_category_licences():
+    from everydaypassion.sources.commons import CommonsMusicSource
+
+    ogg = "https://upload.wikimedia.org/wikipedia/commons/d/de/Nocturne.ogg"
+    http = FakeHttp({"commons.wikimedia.org": {"query": {"pages": [
+        _commons_page(1, "CC BY-SA 4.0", ogg),          # not free enough
+        _commons_page(2, "Public domain", ogg),         # Musopen's dedication
+        _commons_page(3, "CC0", ogg, media="BITMAP"),   # not audio
+    ]}}})
+    cats = {"Set_Chopin_Free": {"CC0", "Public domain"}, "Musopen": None}
+    track = CommonsMusicSource(http=http, categories=cats).fetch_track("2026-06-19", public_only=True)
+    assert "Set_Chopin_Free" in http.requested[-1]  # a private-only category is never drawn
+    assert track.ref_id == "commons-2" and track.public_ok is True
+    assert track.title == "Nocturne 2" and track.artist == "Frédéric Chopin and Musopen"
+    assert track.author == "Frédéric Chopin"
+    assert track.audio_url == ("https://upload.wikimedia.org/wikipedia/commons/transcoded/"
+                               "d/de/Nocturne.ogg/Nocturne.ogg.mp3")
+    assert track.fallback_audio_url == ogg
+
+
+def test_commons_private_only_category_is_not_publishable():
+    from everydaypassion.sources.commons import CommonsMusicSource
+
+    http = FakeHttp({"commons.wikimedia.org": {"query": {"pages": [
+        _commons_page(5, "Public domain", "https://upload.wikimedia.org/wikipedia/commons/a/ab/X.mp3")]}}})
+    track = CommonsMusicSource(http=http, categories={"Musopen": None}).fetch_track("2026-06-19")
+    assert track.public_ok is False
+    assert track.audio_url.endswith("X.mp3") and track.fallback_audio_url == ""
+    with pytest.raises(Exception):
+        CommonsMusicSource(http=http, categories={"Musopen": None}).fetch_track("2026-06-19", public_only=True)
+
+
+def test_http_waits_out_one_rate_limit(monkeypatch):
+    import io
+    import urllib.error
+
+    from everydaypassion.sources import http as http_mod
+
+    calls, sleeps = [], []
+
+    def fake_urlopen(req, timeout):
+        calls.append(req.full_url)
+        if len(calls) == 1:
+            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests",
+                                         {"Retry-After": "120"}, None)
+        return io.BytesIO(b'{"ok": true}')
+
+    monkeypatch.setattr(http_mod.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_mod.time, "sleep", sleeps.append)
+    assert http_mod.Http(max_wait=30).get_json("https://example.org/x") == {"ok": True}
+    assert len(calls) == 2 and sleeps == [30]  # Retry-After honoured, but capped
+
+
+def test_smk_treats_ubekendt_as_unknown():
+    http = FakeHttp({"api.smk.dk": {"items": [
+        {"object_number": "KMS1", "titles": [{"title": "Herodes fest"}], "artist": ["Ubekendt"],
+         "image_thumbnail": "https://iip-thumb.smk.dk/a/full/!1024,/0/default.jpg"},
+        {"object_number": "KMS2", "titles": [{"title": "Portræt"}], "artist": ["Jens Juel"],
+         "image_thumbnail": "https://iip-thumb.smk.dk/b/full/!1024,/0/default.jpg"},
+    ]}})
+    art = SmkSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.artist == "Jens Juel"  # a named work wins over "Ubekendt"
+    only = FakeHttp({"api.smk.dk": {"items": [http.responses["api.smk.dk"]["items"][0]]}})
+    assert SmkSource("/tmp/edp-test", http=only).fetch_artwork("2026-06-19").artist == "Unknown"

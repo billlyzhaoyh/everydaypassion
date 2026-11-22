@@ -202,3 +202,18 @@ def test_render_shows_the_story_collapsed_with_reading_time():
     assert "Today's story" in html and "about 10 min" in html
     assert "<p>Upon the half-decayed veranda.</p>" in html
     assert "About Anderson." in html
+
+
+def test_render_streams_music_without_preloading():
+    from everydaypassion.models import Track
+
+    pkg = _pkg()
+    pkg.music = Track("Wikimedia Commons", "CC0", True, "Aria", "Kimiko Ishizaka",
+                      "https://upload.wikimedia.org/t/a.ogg.mp3", "commons-1",
+                      fallback_audio_url="https://upload.wikimedia.org/a.ogg",
+                      page_url="https://commons.wikimedia.org/wiki/File:a.ogg")
+    html = render.render_day(pkg, site=public_site("/edp/"), date="2026-06-20",
+                             pretty="Saturday", image_url=None)
+    assert '<audio controls preload="none">' in html
+    assert html.index("a.ogg.mp3") < html.index('src="https://upload.wikimedia.org/a.ogg"')
+    assert "Today's music" in html

@@ -93,10 +93,11 @@ def make_store() -> PackageStore:
 def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
     store = make_store()
     library = CuratedLibrary(curated_root())
-    art_source = poem_source = wiki = reflection = story = None
+    art_source = poem_source = wiki = reflection = story = music = None
     if online:
         # Imported lazily so the core/offline path needs no network deps.
         from .sources.artic import ArticSource
+        from .sources.commons import CommonsMusicSource
         from .sources.cleveland import ClevelandSource
         from .sources.curated import CuratedModernArt, CuratedModernPoems
         from .sources.met import MetSource
@@ -138,7 +139,9 @@ def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
             "poem",
         )
         story = StandardEbooksProse()
+        music = CommonsMusicSource()
     return DayBuilder(
         store=store, library=library, met=art_source, poetry=poem_source,
         wiki=wiki, reflection=reflection, public_only=public_only, story=story,
+        music=music,
     )

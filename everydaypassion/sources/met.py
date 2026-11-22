@@ -17,6 +17,10 @@ from ._common import cache_image, details_from
 from .http import Http
 
 MET_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
+# v1/search was retired on 2026-10-01 (it now returns 410 Gone); v1.1/search is
+# paginated (offset/limit) and reports `total`. Highlights per department number
+# ~100-200, so one page with a generous limit holds them all.
+MET_SEARCH = "https://collectionapi.metmuseum.org/public/collection/v1.1/search"
 
 # European Paintings, Drawings & Prints, Photographs, Asian Art, The American Wing.
 DEFAULT_DEPARTMENTS = (11, 9, 19, 6, 1)
@@ -79,8 +83,8 @@ class MetSource:
         # one); `q=painting` biased the pool toward European paintings.
         dept = seeding.shuffled(seeding.seed_for(f"{date}:dept"), list(self.departments))[0]
         url = (
-            f"{MET_BASE}/search?hasImages=true&isHighlight=true"
-            f"&departmentId={dept}&q={urllib.parse.quote('a')}"
+            f"{MET_SEARCH}?hasImages=true&isHighlight=true"
+            f"&departmentId={dept}&q={urllib.parse.quote('a')}&limit=1000&offset=0"
         )
         data = self.http.get_json(url)
         ids = data.get("objectIDs") or []
