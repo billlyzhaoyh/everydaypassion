@@ -96,8 +96,9 @@ regenerates them deliberately. The output is responsive (single fluid column,
 `width=device-width`, fluid image, dark/light follows the OS) — reads cleanly on
 a laptop and a phone.
 
-`scripts/daily-deploy-pages.yml` (copy it over `.github/workflows/daily.yml`)
-runs this at 06:00 UTC daily, commits only the
+> **Pending:** until it's installed (see `HANDOVER.md`), the new workflow is staged at `scripts/daily-deploy-pages.yml`.
+
+`.github/workflows/daily.yml` runs this at 06:00 UTC daily, commits only the
 small `data/public/` JSON, and deploys `_site/` with `actions/deploy-pages` — no
 images are committed, so the repo stops growing. `docs/` holds the archive from
 before that switch and is copied into the site unchanged. To go live:

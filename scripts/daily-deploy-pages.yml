@@ -1,8 +1,6 @@
 name: Daily morning
 
-# TO INSTALL: copy this file over .github/workflows/daily.yml (the Claude session
-# that wrote it couldn't push workflow files: that needs the `workflow` token scope).
-#
+# TO INSTALL: move to .github/workflows/daily.yml without this line (see HANDOVER.md).
 # Builds today's public (CC0 / public-domain only) morning and deploys the site
 # with actions/deploy-pages, so no rendered page or image is committed:
 #
@@ -12,6 +10,8 @@ name: Daily morning
 #   deploy-pages. Copied into the site as-is; nothing writes to it any more.
 # - Images exist only in the deployed artifact. The runner's image cache is
 #   restored between runs, and anything missing is re-fetched from its museum.
+# - --days 2 retries yesterday if it was published incomplete (e.g. music was
+#   rate-limited); complete and legacy days are frozen and skipped.
 #
 # Requires: Settings → Pages → Build and deployment → Source: "GitHub Actions",
 # and an ANTHROPIC_API_KEY Actions secret.
@@ -49,7 +49,7 @@ jobs:
       - name: Export today's public site
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: uv run --extra web --extra llm everydaypassion export --out _site --data data/public --base-url /everydaypassion/
+        run: uv run --extra web --extra llm everydaypassion export --out _site --data data/public --base-url /everydaypassion/ --days 2
 
       - name: Commit the day's data
         run: |
