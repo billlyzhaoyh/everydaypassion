@@ -54,9 +54,9 @@ A local web app on macOS that, on my first login/wake each day, automatically op
 - Auto-open is triggered by **first login/wake of the day via a LaunchAgent**, guarded so it opens at most once per calendar day — *not* a fixed wall-clock time (the laptop may be asleep/off). An optional opportunistic prefetch LaunchAgent may pre-build the day when the machine is awake.
 
 **Daily selection & determinism**
-- **DailyPicker** is a pure module: given a date and the candidate pools, it returns a `Selection` (which artwork/poem to use). Seeded by the calendar date so a date always resolves identically. No network or model calls inside it.
+- Selection is pure and date-seeded: the `seeding` helpers (`seed_for`, `shuffled`) order each source's candidates by the calendar date, so a date always resolves identically. No network or model calls inside them.
 - One artwork **and** one poem per day, every day of the week.
-- No-repeat is enforced via a **seen-IDs log** in PackageStore; the picker is given the already-seen set and excludes it.
+- No-repeat is enforced via a **seen-IDs log** in PackageStore; each source is given the already-seen set and excludes it.
 
 **Content sources (hybrid, real human art)**
 - **MetSource** fetches a quality-filtered artwork from The Met Open Access API: `isPublicDomain = true`, has a real `primaryImage`, biased to `isHighlight` and/or visual-art departments (e.g. European Paintings; Drawings & Prints; Photographs; Asian Art). Caches/downloads the image to disk (no per-view hotlinking).
@@ -96,7 +96,7 @@ DayPackage {
 A good test here exercises **external behavior through a module's narrow interface**, not its internals — given inputs (a date, candidate pools, a temp directory, injected fake sources), assert the observable outputs (which selection, what got persisted, whether a rebuild was refused, whether fallback engaged). Tests must not assert on private helpers, file layouts beyond the public contract, or exact model prose.
 
 Modules to unit-test (pure logic and policy):
-- **DailyPicker** — determinism (same date → same selection), no-repeat exclusion given a seen set, correct one-artwork-one-poem composition. Pure, no I/O — the prime target.
+- **seeding** — determinism (same key → same order), stable permutations. Pure, no I/O — the prime target.
 - **PackageStore** — write-then-read round-trips; the **freeze rule** (an existing date is never overwritten); seen-IDs append/query; favorites add/list. Run against a temp directory.
 - **CuratedLibrary** — `get`/`all` over a fixture folder; respects `public_ok` filtering; returns deterministic items for a given seed.
 - **DayBuilder** — the **retry→fallback policy** using **injected fake sources**: when a source raises, assert fallback to CuratedLibrary; when all sources succeed, assert the assembled package; assert generate-if-missing builds once and frozen dates are not rebuilt.

@@ -25,6 +25,10 @@ class WikipediaClient:
     def facts_for_poet(self, poem: Poem) -> dict:
         return self._lookup(poem.author)
 
+    def facts_for_author(self, item) -> dict:
+        """Any item with an ``author`` (a poem, a story, an essay)."""
+        return self._lookup(item.author)
+
     def _lookup(self, *terms: str) -> dict:
         for term in terms:
             if not term or term == "Unknown":

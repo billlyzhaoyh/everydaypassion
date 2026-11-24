@@ -30,8 +30,13 @@ _DETAILS = {
     "Credit line": "credit_line",
 }
 DEFAULT_IIIF = "https://www.artic.edu/iiif/2"
-# AIC asks clients to identify themselves; deep paging past 10k results is rejected.
+# AIC asks clients to identify themselves. Its search serves only the first 1,000
+# results: page 10 at limit=100 works, page 11 returns 403 "Invalid number of
+# results" (checked live 2026-11-22). So pages run 1..10.
 AIC_UA = {"AIC-User-Agent": "everydaypassion (personal morning ritual)"}
+# Per AIC's API licence text, `description` is CC BY 4.0 (all other data is CC0).
+DESCRIPTION_LICENSE = "CC BY 4.0"
+DESCRIPTION_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
 
 
 class ArticSourceError(RuntimeError):
@@ -39,10 +44,10 @@ class ArticSourceError(RuntimeError):
 
 
 class ArticSource:
-    def __init__(self, image_dir: str | Path, http: Http | None = None, max_page: int = 100):
+    def __init__(self, image_dir: str | Path, http: Http | None = None, max_page: int = 10):
         self.image_dir = Path(image_dir)
         self.http = http or Http(extra_headers=AIC_UA)
-        self.max_page = max_page  # page*limit must stay within AIC's 10,000-result window
+        self.max_page = max_page  # page*limit must stay within AIC's 1,000-result window
 
     def fetch_artwork(self, date: str, seen: set[str] = frozenset(), public_only: bool = False) -> Artwork:
         page = seeding.seed_for(f"{date}:artic-page") % self.max_page + 1
@@ -53,6 +58,7 @@ class ArticSource:
             raise ArticSourceError("no public-domain artwork found")
         iiif = (data.get("config") or {}).get("iiif_url", DEFAULT_IIIF)
         image = f"{iiif}/{chosen['image_id']}/full/843,/0/default.jpg"
+        description = clean_text(chosen.get("description"))
         return Artwork(
             source="Art Institute of Chicago",
             license="CC0",
@@ -63,6 +69,9 @@ class ArticSource:
             medium=chosen.get("medium_display") or "",
             ref_id=f"artic-{chosen['id']}",
             image_path=cache_image(self.http, self.image_dir, image, f"artic-{chosen['id']}"),
-            curator_note=clean_text(chosen.get("description")) or clean_text(chosen.get("short_description")),
+            image_url=image,
+            curator_note=description or clean_text(chosen.get("short_description")),
+            curator_note_license=DESCRIPTION_LICENSE if description else "",
+            curator_note_license_url=DESCRIPTION_LICENSE_URL if description else "",
             details=details_from(chosen, _DETAILS),
         )

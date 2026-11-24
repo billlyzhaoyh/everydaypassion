@@ -1,9 +1,10 @@
 # everydaypassion
 
-A personal morning ritual: every day, one painting and one poem, with the story
-behind them a click away. Art from The Met's Open Access collection, poetry from
-the public-domain canon plus a curated modern library, and a short grounded
-reflection written by Claude.
+A personal morning ritual: every day, one painting and one poem — plus a short
+story or essay and a piece of music — with the story behind each a click away.
+Art from open-access museum collections, poetry from the public-domain canon plus
+a curated modern library, fiction and essays from Standard Ebooks, recordings from
+Wikimedia Commons, and a short grounded reflection on each written by Claude.
 
 > "Poetry, beauty, romance, love — these are what we stay alive for." — *Dead Poets Society*
 
@@ -40,8 +41,10 @@ Install the LaunchAgent so a tab opens on your first login each day:
 ANTHROPIC_API_KEY=sk-ant-... ./scripts/install-launch-agent.sh
 ```
 
-It greets you once per calendar day (the CLI guards against re-firing). Test it
-now with `everydaypassion open --force`.
+It fires at login and at 06:00 (or the first wake after, if the Mac was asleep),
+and greets you once per calendar day (the CLI guards against re-firing). Without
+an exported key the agent uses the key in `.env`. Test it now with
+`everydaypassion open --force`.
 
 ## How it works
 
@@ -58,11 +61,11 @@ now with `everydaypassion open --force`.
 
 | Module | Role |
 |---|---|
-| `seeding`, `picker` | pure deterministic choice (date → selection) |
+| `seeding` | pure deterministic choice (date → seeded order) |
 | `store` | dated packages (freeze-once), seen-IDs, favorites |
 | `library` | curated local corpus + offline fallback |
 | `builder` | orchestration: generate-if-missing, retry → fallback |
-| `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, V&A) + PoetryDB, Wikipedia, Claude reflections |
+| `sources/` | art (Met, Art Institute of Chicago, Cleveland, SMK, Rijksmuseum, V&A); poems (PoetryDB, Standard Ebooks); stories & essays (Standard Ebooks); music (Wikimedia Commons); Wikipedia facts; Claude reflections |
 | `web/` | render layer + FastAPI server (today / archive / favorites), idle self-shutdown |
 | `static_site` | public static export for GitHub Pages |
 
@@ -81,30 +84,59 @@ A `SiteConfig` selects the mode (see `config.py`):
 ## Publishing to GitHub Pages
 
 ```bash
-everydaypassion export --out docs --base-url /everydaypassion/ --days 1
+cp -r docs _site   # start from the frozen legacy archive (optional locally)
+everydaypassion export --out _site --data data/public --base-url /everydaypassion/
 ```
 
-Writes `docs/index.html` (today), `docs/day/<date>.html`, `docs/archive.html`,
-plus copied CC0 images and CSS. The output is responsive (single fluid column,
+Builds today into `data/public/` (the published day as JSON, plus the public
+site's own seen log so it never repeats itself), then renders every published
+day to `_site/`: `index.html` (newest), `day/<date>.html`, `archive.html`, copied
+CC0 / public-domain images and CSS. Published days are frozen; `--rebuild`
+regenerates them deliberately. The output is responsive (single fluid column,
 `width=device-width`, fluid image, dark/light follows the OS) — reads cleanly on
 a laptop and a phone.
 
-`.github/workflows/daily.yml` runs this at 06:00 UTC daily and commits `docs/`,
-so the archive accumulates. To go live:
+> **Pending:** until it's installed (see `HANDOVER.md`), the new workflow is staged at `scripts/daily-deploy-pages.yml`.
+
+`.github/workflows/daily.yml` runs this at 06:00 UTC daily, commits only the
+small `data/public/` JSON, and deploys `_site/` with `actions/deploy-pages` — no
+images are committed, so the repo stops growing. `docs/` holds the archive from
+before that switch and is copied into the site unchanged. To go live:
 
 1. Add `ANTHROPIC_API_KEY` as a repo **Actions secret**.
-2. Settings → **Pages** → Source: *Deploy from a branch* → your default branch, `/docs`.
+2. Settings → **Pages** → Build and deployment → Source: **GitHub Actions**.
 3. The site lands at `https://<user>.github.io/everydaypassion/`.
 
 ## Content & licensing
 
-Every item carries `source` / `license` / `public_ok`. The CC0 museums (Met, Art
-Institute, Cleveland, SMK), classic public-domain poetry, and Claude's
-reflections are publishable; **the V&A (personal-use license) and curated modern
-art/poems are private-only** (`public_ok: false`). The public build is the same
-generator filtered to `public_ok = true`. See
-[`data/curated/MODERN_POEMS.md`](data/curated/MODERN_POEMS.md) for how to add
+Every item carries `source` / `license` / `public_ok`; the public build is the
+same generator filtered to `public_ok = true`.
+
+- **Publishable:** the CC0 / public-domain museums (Met, Art Institute, Cleveland,
+  SMK and Rijksmuseum — the last two under the Public Domain Mark; Rijksmuseum
+  images marked In Copyright are skipped), PoetryDB's public-domain poems,
+  Standard Ebooks texts (US public domain, CC0 editions), CC0 or
+  rights-holder-dedicated recordings from Commons (Open Goldberg Variations,
+  Musopen's Set Chopin Free), and Claude's reflections. The Art Institute's own
+  description text is CC BY 4.0 and is credited as such.
+- **Private only** (`public_ok: false`): the V&A (personal-use licence), curated
+  modern art/poems, and Commons recordings whose "public domain" status rests on
+  non-US rules (the wider Musopen category).
+
+Music is streamed from Wikimedia (`preload="none"`), never copied into the site.
+See [`data/curated/MODERN_POEMS.md`](data/curated/MODERN_POEMS.md) for how to add
 modern poems.
+
+## Checking the sources
+
+```bash
+.venv/bin/python scripts/check_sources.py [DATE] [--public]
+```
+
+Fetches one item from every source (real network calls, no Claude calls) and
+prints OK/FAIL per source — the quickest way to see why a morning fell back to
+the curated library. APIs do change under us: The Met retired its v1 search on
+2026-10-01, which silently took it out of the rotation until it moved to v1.1.
 
 ## Tests
 
@@ -113,7 +145,7 @@ modern poems.
 .venv/bin/pytest
 ```
 
-Pure logic (`picker`, `store`, `library`, `builder`) is unit-tested; the network/
+Pure logic (`seeding`, `store`, `library`, `builder`) is unit-tested; the network/
 model sources have fast contract tests with fake HTTP.
 
 ## Runtime state

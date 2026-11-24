@@ -13,15 +13,18 @@ from typing import Callable
 from .. import seeding
 from ..models import Poem
 from .http import Http
+from .taste import TasteGate
 
 PDB_BASE = "https://poetrydb.org"
 
-# A solid, contemplative public-domain canon. Widen freely over time.
+# A solid, contemplative public-domain canon. Every name must match PoetryDB's
+# /author list exactly (checked 2026-11-22): Frost, Rilke, Teasdale and Yeats aren't
+# in it, so they were replaced with four poets who are.
 DEFAULT_AUTHORS = (
-    "Emily Dickinson", "Robert Frost", "Walt Whitman", "William Wordsworth",
+    "Emily Dickinson", "Walt Whitman", "William Wordsworth",
     "John Keats", "Christina Rossetti", "William Blake", "Edgar Allan Poe",
-    "Percy Bysshe Shelley", "Sara Teasdale", "Rainer Maria Rilke",
-    "William Butler Yeats", "Gerard Manley Hopkins", "Robert Louis Stevenson",
+    "Percy Bysshe Shelley", "Gerard Manley Hopkins", "Robert Louis Stevenson",
+    "William Shakespeare", "Lord Alfred Tennyson", "Emily Bronte", "Edward Thomas",
 )
 
 
@@ -31,24 +34,29 @@ class PoetrySourceError(RuntimeError):
 
 class PoetrySource:
     def __init__(self, http: Http | None = None, authors=DEFAULT_AUTHORS,
-                 max_lines: int = 30, taste_gate: Callable[[list[str]], bool] | None = None):
+                 max_lines: int = 30, taste_gate: Callable[[list[str]], bool] | None = None,
+                 max_gate_calls: int = 5):
         self.http = http or Http()
         self.authors = tuple(authors)
         self.max_lines = max_lines
-        self.taste_gate = taste_gate
+        self.gate = TasteGate(taste_gate, max_gate_calls)
 
     def fetch_poem(self, date: str, seen: set[str] = frozenset(), public_only: bool = False) -> Poem:
         authors = seeding.shuffled(seeding.seed_for(f"{date}:poet"), list(self.authors))
+        last_error: Exception | None = None
         for author in authors:
-            poems = self._by_author(author)
+            try:
+                poems = self._by_author(author)
+            except Exception as exc:  # noqa: BLE001 — one poet's outage must not cost the day
+                last_error = exc
+                continue
             short = [p for p in poems if len(p.get("lines", [])) <= self.max_lines]
             ordered = seeding.shuffled(seeding.seed_for(f"{date}:poem"), short)
             for raw in ordered:
                 ref = f"{raw.get('author')}::{raw.get('title')}"
                 if ref in seen:
                     continue
-                lines = [ln for ln in raw.get("lines", []) if ln.strip() != ""] or raw.get("lines", [])
-                if not self._tasteful(lines):
+                if not self.gate.allows(date, ref, raw.get("lines", [])):
                     continue
                 return Poem(
                     source="PoetryDB",
@@ -58,15 +66,7 @@ class PoetrySource:
                     author=raw.get("author") or author,
                     lines=raw.get("lines", []),
                 )
-        raise PoetrySourceError("no suitable poem found within length/taste constraints")
-
-    def _tasteful(self, lines: list[str]) -> bool:
-        if self.taste_gate is None:
-            return True
-        try:
-            return bool(self.taste_gate(lines))
-        except Exception:  # noqa: BLE001 — a broken screener must not cost the poem
-            return True
+        raise PoetrySourceError("no suitable poem found within length/taste constraints") from last_error
 
     def _by_author(self, author: str) -> list[dict]:
         url = f"{PDB_BASE}/author/{urllib.parse.quote(author)}"

@@ -7,6 +7,8 @@ favorites. Pure file I/O over a directory, so it tests cleanly against tmp.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 
 from .models import DayPackage
@@ -37,8 +39,7 @@ class PackageStore:
         True if written, False if the freeze rule refused it."""
         if self.has(pkg.date) and not overwrite:
             return False
-        with open(self._pkg_path(pkg.date), "w", encoding="utf-8") as f:
-            json.dump(pkg.to_dict(), f, indent=2, ensure_ascii=False)
+        self._dump(self._pkg_path(pkg.date), pkg.to_dict())
         return True
 
     def archive(self) -> list[str]:
@@ -86,5 +87,14 @@ class PackageStore:
 
     @staticmethod
     def _dump(path: Path, value) -> None:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(value, f, indent=2, ensure_ascii=False)
+        """Write atomically (temp file + rename) so a crash mid-write can never
+        leave a truncated file that ``has()`` accepts but ``read()`` can't parse."""
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(value, f, indent=2, ensure_ascii=False)
+                f.write("\n")
+            os.replace(tmp, path)
+        except BaseException:
+            Path(tmp).unlink(missing_ok=True)
+            raise

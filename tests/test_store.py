@@ -56,3 +56,20 @@ def test_archive_is_sorted_newest_first(tmp_path):
     for d in ("2026-06-18", "2026-06-20", "2026-06-19"):
         store.write(_pkg(date=d))
     assert store.archive() == ["2026-06-20", "2026-06-19", "2026-06-18"]
+
+
+def test_writes_are_atomic_and_leave_no_temp_files(tmp_path):
+    store = PackageStore(tmp_path)
+    store.mark_seen("a")
+    store.add_favorite("2026-06-19")
+    assert not list(tmp_path.rglob("*.tmp"))
+    assert store.seen_ids() == {"a"}
+
+
+def test_home_expands_a_tilde(monkeypatch):
+    from pathlib import Path
+
+    from everydaypassion import config
+
+    monkeypatch.setenv("EVERYDAYPASSION_HOME", "~/.edp-test")
+    assert config.home() == Path.home() / ".edp-test"

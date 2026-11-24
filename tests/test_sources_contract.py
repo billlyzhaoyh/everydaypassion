@@ -2,7 +2,7 @@
 
 These verify request shape and parsing against recorded-style responses, so the
 suite stays fast and offline-deterministic. The deterministic core logic is
-covered separately in test_picker / test_store / test_builder.
+covered separately in test_seeding / test_store / test_builder.
 """
 
 import json
@@ -16,6 +16,7 @@ from everydaypassion.sources.curated import CuratedModernArt
 from everydaypassion.sources.met import MetSource
 from everydaypassion.sources.poetry import PoetrySource
 from everydaypassion.sources.pool import SourcePool
+from everydaypassion.sources.rijks import RijksSource
 from everydaypassion.sources.smk import SmkSource
 from everydaypassion.sources.vam import VamSource
 
@@ -50,6 +51,9 @@ def test_met_picks_a_public_domain_artwork_with_image():
         },
     })
     art = MetSource(image_dir="/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    # the retired v1/search (410 Gone since 2026-10-01) must not be used
+    assert any("/v1.1/search?" in u for u in http.requested if isinstance(u, str))
+    assert not any("/v1/search" in u for u in http.requested if isinstance(u, str))
     assert art.title == "Wheat Field"
     assert art.artist == "Van Gogh"
     assert art.public_ok is True
@@ -73,6 +77,8 @@ def test_met_prefers_a_named_artist_over_unknown():
     })
     art = MetSource(image_dir="/tmp/edp-test", http=http, max_probe=10).fetch_artwork("2026-06-19")
     assert art.artist == "A Painter"
+    # only the returned work's image is downloaded, never the skipped candidate's
+    assert [r for r in http.requested if isinstance(r, tuple)] == [("download", "u")]
 
 
 def test_met_falls_back_to_unnamed_when_no_named_artist():
@@ -128,6 +134,32 @@ def test_poetry_taste_gate_rejects_and_redraws():
     assert poem.title == "Worthy"
 
 
+def test_poetry_one_poets_outage_moves_on_to_the_next():
+    class FlakyHttp(FakeHttp):
+        def get_json(self, url):
+            if "Down" in url:
+                raise TimeoutError("PoetryDB timed out")
+            return super().get_json(url)
+
+    http = FlakyHttp({"/author/Up": [{"title": "Survivor", "author": "Up", "lines": ["x"]}]})
+    for day in range(1, 8):  # whichever order the poets come in, the day survives
+        poem = PoetrySource(http=http, authors=["Down", "Up"]).fetch_poem(f"2026-06-{day:02d}")
+        assert poem.title == "Survivor"
+
+
+def test_poetry_taste_gate_calls_are_capped_and_cached():
+    http = FakeHttp({"/author/": [
+        {"title": f"P{i}", "author": "A Poet", "lines": [str(i)]} for i in range(10)]})
+    calls = []
+    gate = lambda lines: calls.append(lines) or False  # rejects everything
+    src = PoetrySource(http=http, authors=["A Poet"], taste_gate=gate, max_gate_calls=3)
+    first = src.fetch_poem("2026-06-19")
+    assert len(calls) == 3  # budget spent, then the next candidate is accepted
+    again = src.fetch_poem("2026-06-19")  # e.g. the builder's retry
+    assert len(calls) == 3  # cached verdicts: no new model calls
+    assert again.title == first.title
+
+
 # ---- new museum sources, pool, and curated modern art -------------------
 def test_artic_prefers_named_public_domain_work():
     http = FakeHttp({
@@ -149,8 +181,21 @@ def test_artic_prefers_named_public_domain_work():
     # curator text is captured for grounding, with markup stripped
     assert art.details["Curator's summary"] == "One of three versions of his Arles bedroom."
     assert art.details["Curatorial description"] == "Perhaps the most famous bedroom in art."
-    # the description becomes the displayable curator note (markup stripped)
+    # the description becomes the displayable curator note (markup stripped),
+    # credited under its own licence (CC BY 4.0, unlike the CC0 image)
     assert art.curator_note == "Perhaps the most famous bedroom in art."
+    assert art.curator_note_license == "CC BY 4.0"
+    assert art.license == "CC0"
+
+
+def test_artic_stays_within_the_paging_window():
+    http = FakeHttp({"api.artic.edu": {"data": [
+        {"id": 2, "title": "T", "artist_title": "A", "image_id": "b"}]}})
+    for day in range(1, 29):
+        ArticSource("/tmp/edp-test", http=http).fetch_artwork(f"2026-02-{day:02d}")
+    pages = [int(u.split("page=")[1]) for u in http.requested
+             if isinstance(u, str) and "page=" in u]
+    assert pages and max(pages) <= 10
 
 
 def test_cleveland_extracts_artist_name_and_image():
@@ -179,6 +224,21 @@ def test_cleveland_extracts_artist_name_and_image():
     )
 
 
+def test_cleveland_skips_records_not_marked_cc0():
+    http = FakeHttp({
+        "clevelandart.org": {
+            "data": [
+                {"id": 1, "title": "Copyrighted", "share_license_status": "Copyrighted",
+                 "creators": [{"description": "Someone (American)"}]},
+                {"id": 2, "title": "Open", "share_license_status": "CC0",
+                 "creators": [{"description": "Another (American)"}]},
+            ],
+        },
+    })
+    art = ClevelandSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.title == "Open"
+
+
 def test_smk_parses_cc0_record_with_image():
     http = FakeHttp({
         "api.smk.dk": {
@@ -194,7 +254,7 @@ def test_smk_parses_cc0_record_with_image():
     assert art.title == "Overraskelsen"
     assert art.artist == "Ugo da Carpi"
     assert art.ref_id == "smk-KKS1"
-    assert art.license == "CC0"
+    assert art.license == "Public Domain Mark 1.0"
     assert art.public_ok is True
 
 
@@ -259,3 +319,206 @@ def test_curated_modern_art_picks_and_resolves_image(tmp_path):
     # a public build excludes the copyrighted modern piece
     with pytest.raises(LookupError):
         CuratedModernArt(tmp_path, images).fetch_artwork("2026-06-19", public_only=True)
+
+
+def test_taste_gate_uses_the_small_model_and_tolerates_markdown():
+    from types import SimpleNamespace
+
+    from everydaypassion.sources.reflection import ReflectionWriter
+
+    sent = {}
+
+    class FakeMessages:
+        def __init__(self, reply):
+            self.reply = reply
+
+        def create(self, **kw):
+            sent.update(kw)
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text=self.reply)])
+
+    def writer(reply):
+        return ReflectionWriter(client=SimpleNamespace(messages=FakeMessages(reply)),
+                                gate_model="small-model")
+
+    assert writer("**YES**").taste_ok(["a line"]) is True
+    assert sent["model"] == "small-model"
+    assert sent["thinking"] == {"type": "disabled"}
+    assert writer("Yes.").taste_ok(["a line"]) is True
+    assert writer("NO").taste_ok(["a line"]) is False
+
+
+def _rijks_object(rights, creator, title):
+    en = [{"id": "http://vocab.getty.edu/aat/300388277"}]
+    return {
+        "identified_by": [{"type": "Name", "content": title, "language": en}],
+        "produced_by": {
+            "timespan": {"identified_by": [{"content": "1626", "language": en}]},
+            "referred_to_by": [{"content": creator, "language": en,
+                                "classified_as": [{"id": "http://vocab.getty.edu/aat/300435416"}]}],
+            "part": [{"carried_out_by": [{"notation": [{"@language": "en", "@value": creator}],
+                                          "equivalent": [{"id": "http://www.wikidata.org/entity/Q5598"}]}]}],
+        },
+        "referred_to_by": [{"content": "oil on panel", "language": en,
+                            "classified_as": [{"id": "http://vocab.getty.edu/aat/300435429"}]}],
+        "subject_of": [{"digitally_carried_by": [{
+            "access_point": [{"id": "https://iiif.micr.io/abc/full/max/0/default.jpg"}],
+            "referred_to_by": [{"content": rights}]}]}],
+    }
+
+
+def test_rijks_takes_only_free_images_and_parses_linked_art():
+    http = FakeHttp({
+        "search/collection": {"orderedItems": [{"id": "https://id.rijksmuseum.nl/1"},
+                                               {"id": "https://id.rijksmuseum.nl/2"}]},
+        "data.rijksmuseum.nl/1": _rijks_object(
+            "https://rightsstatements.org/vocab/InC/1.0/", "Karel Appel", "In copyright"),
+        "data.rijksmuseum.nl/2": _rijks_object(
+            "https://creativecommons.org/publicdomain/mark/1.0/", "Rembrandt van Rijn",
+            "Tobit and Anna with the Kid"),
+    })
+    art = RijksSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19", public_only=True)
+    assert art.title == "Tobit and Anna with the Kid"
+    assert art.artist == "Rembrandt van Rijn"
+    assert art.license == "Public Domain Mark 1.0" and art.public_ok is True
+    assert art.medium == "oil on panel" and art.date == "1626"
+    assert art.ref_id == "rijks-2"
+    assert art.image_url == "https://iiif.micr.io/abc/full/843,/0/default.jpg"
+    assert art.artist_url == "http://www.wikidata.org/entity/Q5598"
+
+
+# ---- Standard Ebooks (poetry + prose) -----------------------------------
+_OPF = ('<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+        '<metadata><dc:creator id="author">{author}</dc:creator></metadata></package>')
+_X = ('<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">'
+      '<body>{body}</body></html>')
+
+
+class FakeTextHttp:
+    def __init__(self, pages):
+        self.pages = pages
+
+    def get_text(self, url):
+        for key, text in self.pages.items():
+            if url.endswith(key):
+                return text
+        raise AssertionError(f"unexpected URL: {url}")
+
+
+def _poem(pid, n):
+    lines = "<br/>".join(f"<span>line {i}</span>" for i in range(n))
+    return f'<article id="{pid}" epub:type="z3998:poem"><h2>{pid}</h2><p>{lines}</p></article>'
+
+
+def test_standard_ebooks_poetry_extracts_a_short_poem():
+    from everydaypassion.sources.standardebooks import LICENSE, StandardEbooksPoetry
+
+    toc = _X.format(body='<nav><a href="text/titlepage.xhtml">Titlepage</a>'
+                         '<a href="text/poetry.xhtml#epic">Epic</a>'
+                         '<a href="text/poetry.xhtml#gem">Dust of Snow</a></nav>')
+    http = FakeTextHttp({
+        "content.opf": _OPF.format(author="Robert Frost"),
+        "toc.xhtml": toc,
+        "text/poetry.xhtml": _X.format(body=_poem("epic", 80) + _poem("gem", 8)),
+    })
+    poem = StandardEbooksPoetry(http=http, collections=["robert-frost_new-hampshire"]) \
+        .fetch_poem("2026-06-19")
+    assert poem.title == "Dust of Snow" and poem.author == "Robert Frost"
+    assert poem.lines == [f"line {i}" for i in range(8)]
+    assert poem.license == LICENSE and poem.public_ok is True
+
+
+def test_standard_ebooks_prose_keeps_a_story_of_reading_length():
+    from everydaypassion.sources.standardebooks import StandardEbooksProse
+
+    para = "<p>" + " ".join(["word"] * 100) + "</p>"
+    toc = _X.format(body='<nav><a href="text/long.xhtml">Long</a>'
+                         '<a href="text/hands.xhtml">Hands</a>'
+                         '<a href="text/hands.xhtml#hands-1">I</a></nav>')
+    http = FakeTextHttp({
+        "content.opf": _OPF.format(author="Sherwood Anderson"),
+        "toc.xhtml": toc,
+        "text/long.xhtml": _X.format(body=f'<article epub:type="se:short-story">{para * 60}</article>'),
+        "text/hands.xhtml": _X.format(body='<article epub:type="se:short-story"><h2>Hands</h2>'
+                                            f'<section id="hands-1">{para * 12}</section></article>'),
+    })
+    prose = StandardEbooksProse(http=http, collections=["sherwood-anderson_winesburg-ohio"]) \
+        .fetch_prose("2026-06-19")
+    assert prose.title == "Hands" and prose.kind == "story"
+    assert prose.word_count == 1200 and len(prose.paragraphs) == 12
+    assert prose.minutes == 5
+    assert prose.source_url == "https://github.com/standardebooks/sherwood-anderson_winesburg-ohio"
+
+
+# ---- Wikimedia Commons music ---------------------------------------------
+def _commons_page(pid, licence, url, media="AUDIO"):
+    return {"pageid": pid, "title": f"File:Track {pid}.ogg", "imageinfo": [{
+        "mediatype": media, "url": url, "descriptionurl": f"https://commons.wikimedia.org/wiki/File:{pid}",
+        "extmetadata": {"LicenseShortName": {"value": licence},
+                        "Artist": {"value": "<a href='x'>Frédéric Chopin</a> and Musopen"},
+                        "ObjectName": {"value": f"Nocturne {pid}"}}}]}
+
+
+def test_commons_music_streams_a_transcode_and_respects_category_licences():
+    from everydaypassion.sources.commons import CommonsMusicSource
+
+    ogg = "https://upload.wikimedia.org/wikipedia/commons/d/de/Nocturne.ogg"
+    http = FakeHttp({"commons.wikimedia.org": {"query": {"pages": [
+        _commons_page(1, "CC BY-SA 4.0", ogg),          # not free enough
+        _commons_page(2, "Public domain", ogg),         # Musopen's dedication
+        _commons_page(3, "CC0", ogg, media="BITMAP"),   # not audio
+    ]}}})
+    cats = {"Set_Chopin_Free": {"CC0", "Public domain"}, "Musopen": None}
+    track = CommonsMusicSource(http=http, categories=cats).fetch_track("2026-06-19", public_only=True)
+    assert "Set_Chopin_Free" in http.requested[-1]  # a private-only category is never drawn
+    assert track.ref_id == "commons-2" and track.public_ok is True
+    assert track.title == "Nocturne 2" and track.artist == "Frédéric Chopin and Musopen"
+    assert track.author == "Frédéric Chopin"
+    assert track.audio_url == ("https://upload.wikimedia.org/wikipedia/commons/transcoded/"
+                               "d/de/Nocturne.ogg/Nocturne.ogg.mp3")
+    assert track.fallback_audio_url == ogg
+
+
+def test_commons_private_only_category_is_not_publishable():
+    from everydaypassion.sources.commons import CommonsMusicSource
+
+    http = FakeHttp({"commons.wikimedia.org": {"query": {"pages": [
+        _commons_page(5, "Public domain", "https://upload.wikimedia.org/wikipedia/commons/a/ab/X.mp3")]}}})
+    track = CommonsMusicSource(http=http, categories={"Musopen": None}).fetch_track("2026-06-19")
+    assert track.public_ok is False
+    assert track.audio_url.endswith("X.mp3") and track.fallback_audio_url == ""
+    with pytest.raises(Exception):
+        CommonsMusicSource(http=http, categories={"Musopen": None}).fetch_track("2026-06-19", public_only=True)
+
+
+def test_http_waits_out_one_rate_limit(monkeypatch):
+    import io
+    import urllib.error
+
+    from everydaypassion.sources import http as http_mod
+
+    calls, sleeps = [], []
+
+    def fake_urlopen(req, timeout):
+        calls.append(req.full_url)
+        if len(calls) == 1:
+            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests",
+                                         {"Retry-After": "120"}, None)
+        return io.BytesIO(b'{"ok": true}')
+
+    monkeypatch.setattr(http_mod.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(http_mod.time, "sleep", sleeps.append)
+    assert http_mod.Http(max_wait=30).get_json("https://example.org/x") == {"ok": True}
+    assert len(calls) == 2 and sleeps == [30]  # Retry-After honoured, but capped
+
+
+def test_smk_treats_ubekendt_as_unknown():
+    http = FakeHttp({"api.smk.dk": {"items": [
+        {"object_number": "KMS1", "titles": [{"title": "Herodes fest"}], "artist": ["Ubekendt"],
+         "image_thumbnail": "https://iip-thumb.smk.dk/a/full/!1024,/0/default.jpg"},
+        {"object_number": "KMS2", "titles": [{"title": "Portræt"}], "artist": ["Jens Juel"],
+         "image_thumbnail": "https://iip-thumb.smk.dk/b/full/!1024,/0/default.jpg"},
+    ]}})
+    art = SmkSource("/tmp/edp-test", http=http).fetch_artwork("2026-06-19")
+    assert art.artist == "Jens Juel"  # a named work wins over "Ubekendt"
+    only = FakeHttp({"api.smk.dk": {"items": [http.responses["api.smk.dk"]["items"][0]]}})
+    assert SmkSource("/tmp/edp-test", http=only).fetch_artwork("2026-06-19").artist == "Unknown"

@@ -8,10 +8,11 @@ library — is fully testable with fakes and no network.
 
 from __future__ import annotations
 
+import threading
 from typing import Protocol
 
 from .library import CuratedLibrary
-from .models import Artwork, DayPackage, Poem, Reflection
+from .models import Artwork, DayPackage, Poem, Prose, Reflection, Track
 from .store import PackageStore
 
 # A curator note this long or longer stands on its own — show it verbatim and skip
@@ -27,14 +28,34 @@ class PoemSource(Protocol):
     def fetch_poem(self, date: str, seen: set[str], public_only: bool) -> Poem: ...
 
 
+class ProseSource(Protocol):
+    def fetch_prose(self, date: str, seen: set[str], public_only: bool) -> Prose: ...
+
+
+class TrackSource(Protocol):
+    def fetch_track(self, date: str, seen: set[str], public_only: bool) -> Track: ...
+
+
 class Facts(Protocol):
     def facts_for(self, artwork: Artwork) -> dict: ...
     def facts_for_poet(self, poem: Poem) -> dict: ...
+    def facts_for_author(self, item) -> dict: ...
 
 
 class ReflectionSource(Protocol):
     def write(self, artwork: Artwork, facts: dict) -> str: ...
     def write_poem(self, poem: Poem, facts: dict) -> str: ...
+    def write_prose(self, prose: Prose, facts: dict) -> str: ...
+    def write_music(self, track: Track, facts: dict) -> str: ...
+
+
+def pkg_ref_ids(pkg: DayPackage) -> list[str]:
+    """Every item a package shows, for the seen log."""
+    ids = [pkg.artwork.ref_id, pkg.poem.ref_id]
+    for extra in (pkg.story, pkg.music):
+        if extra is not None:
+            ids.append(extra.ref_id)
+    return ids
 
 
 class DayBuilder:
@@ -48,6 +69,8 @@ class DayBuilder:
         reflection: ReflectionSource | None = None,
         retries: int = 2,
         public_only: bool = False,
+        story: ProseSource | None = None,
+        music: TrackSource | None = None,
     ):
         self.store = store
         self.library = library
@@ -57,48 +80,105 @@ class DayBuilder:
         self.reflection = reflection
         self.retries = max(1, retries)
         self.public_only = public_only
+        self.story = story
+        self.music = music
+        # The server runs sync routes in a threadpool: serialize builds so a reload
+        # during a slow first build waits for it instead of building a second package.
+        self._lock = threading.Lock()
 
     def ensure(self, date: str) -> DayPackage:
         """Return the package for ``date``, building it once if missing.
-        A built date is frozen and never rebuilt."""
-        if self.store.has(date):
-            return self.store.read(date)
-        pkg = self.build(date)
-        self.store.write(pkg)
-        self.store.mark_seen(pkg.artwork.ref_id, pkg.poem.ref_id)
-        return pkg
 
-    def build(self, date: str) -> DayPackage:
-        seen = self.store.seen_ids()
-        artwork = self._fetch(
+        A complete build is frozen and never rebuilt. A degraded one (a live source
+        fell back to the curated library, or a reflection failed) is kept but
+        retried on later visits until a complete build replaces it."""
+        with self._lock:
+            stored = self.store.read(date) if self.store.has(date) else None
+            if stored is not None and stored.frozen:
+                return stored
+            pkg = self.build(date)
+            if stored is not None and not pkg.frozen:
+                return stored  # still degraded — keep the page stable until a full build
+            if not self.store.write(pkg, overwrite=stored is not None):
+                return self.store.read(date)  # another process wrote it first
+            self.store.mark_seen(*pkg_ref_ids(pkg))
+            return pkg
+
+    def build(self, date: str, seen: set[str] | None = None) -> DayPackage:
+        """Assemble a package. ``seen`` overrides the store's seen log (the public
+        export passes the published site's own log)."""
+        if seen is None:
+            seen = self.store.seen_ids()
+        artwork, art_ok = self._fetch(
             date, seen, "artwork",
             self.met.fetch_artwork if self.met else None,
             self.library.get_artwork,
         )
-        poem = self._fetch(
+        poem, poem_ok = self._fetch(
             date, seen, "poem",
             self.poetry.fetch_poem if self.poetry else None,
             self.library.get_poem,
+        )
+        artwork_reflection = self._artwork_reflection(artwork)
+        poem_reflection = self._reflect(
+            poem.source,
+            lambda: self.wiki.facts_for_poet(poem),
+            lambda facts: self.reflection.write_poem(poem, facts),
+        )
+        story, story_reflection, story_ok = self._optional(
+            self.story, "fetch_prose", "write_prose", date, seen)
+        music, music_reflection, music_ok = self._optional(
+            self.music, "fetch_track", "write_music", date, seen)
+        reflecting = self.wiki is not None and self.reflection is not None
+        complete = art_ok and poem_ok and story_ok and music_ok and (
+            not reflecting or (
+                artwork_reflection is not None and poem_reflection is not None
+                and (story is None or story_reflection is not None)
+                and (music is None or music_reflection is not None)
+            )
         )
         return DayPackage(
             date=date,
             artwork=artwork,
             poem=poem,
-            artwork_reflection=self._artwork_reflection(artwork),
-            poem_reflection=self._reflect(
-                poem.source,
-                lambda: self.wiki.facts_for_poet(poem),
-                lambda facts: self.reflection.write_poem(poem, facts),
-            ),
-            frozen=True,
+            artwork_reflection=artwork_reflection,
+            poem_reflection=poem_reflection,
+            frozen=complete,
+            story=story,
+            story_reflection=story_reflection,
+            music=music,
+            music_reflection=music_reflection,
         )
+
+    def _optional(self, source, fetch: str, write: str, date: str, seen: set[str]):
+        """An optional extra slot (story, music): (item, reflection, ok). There's no
+        curated fallback — a failed fetch leaves the slot empty and the day unfrozen,
+        so it's retried on a later visit."""
+        if source is None:
+            return None, None, True
+        try:
+            item = self._retry(
+                lambda: getattr(source, fetch)(date=date, seen=seen, public_only=self.public_only)
+            )
+        except Exception:
+            return None, None, False
+        reflection = self._reflect(
+            item.source,
+            lambda: self.wiki.facts_for_author(item),
+            lambda facts: getattr(self.reflection, write)(item, facts),
+        )
+        return item, reflection, True
 
     def _artwork_reflection(self, artwork: Artwork) -> Reflection | None:
         """Prefer the museum's own note when it's substantial — shown verbatim,
         no LLM, works even offline. Otherwise the writer composes from facts."""
         note = (artwork.curator_note or "").strip()
         if len(note) >= MIN_CURATOR_NOTE:
-            return Reflection(text=note, grounded_in=[artwork.source])
+            return Reflection(
+                text=note, grounded_in=[artwork.source],
+                license=artwork.curator_note_license,
+                license_url=artwork.curator_note_license_url,
+            )
         return self._reflect(
             artwork.source,
             lambda: self.wiki.facts_for(artwork),
@@ -108,15 +188,16 @@ class DayBuilder:
     # ---- content with retry → fallback ----------------------------------
     def _fetch(self, date: str, seen: set[str], kind: str, live, fallback):
         """Fetch from the live source (with retries), falling back to the
-        curated library if it's absent or fails."""
+        curated library if it's absent or fails. Returns ``(item, ok)`` where
+        ``ok`` is False when a configured live source failed."""
         if live is not None:
             try:
                 return self._retry(
                     lambda: live(date=date, seen=seen, public_only=self.public_only)
-                )
+                ), True
             except Exception:
-                pass
-        return fallback(f"{date}:{kind}", public_only=self.public_only)
+                return fallback(f"{date}:{kind}", public_only=self.public_only), False
+        return fallback(f"{date}:{kind}", public_only=self.public_only), True
 
     def _reflect(self, source: str, fetch_facts, write) -> Reflection | None:
         """Ground a reflection in real facts, returning None if the facts or the

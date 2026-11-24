@@ -6,8 +6,9 @@
   <key>Label</key>
   <string>com.everydaypassion.open</string>
 
-  <!-- Greets you on first login/wake of the day. The CLI's once-per-day
-       guard makes re-fires harmless, so this is safe to RunAtLoad. -->
+  <!-- Greets you at login and every morning at 06:00 — if the Mac is asleep
+       then, launchd runs it on the next wake. The CLI's once-per-day guard
+       makes the extra fires harmless. -->
   <key>ProgramArguments</key>
   <array>
     <string>__PYTHON__</string>
@@ -16,17 +17,27 @@
     <string>open</string>
   </array>
 
+  <!--__ENV_START__-->
   <key>EnvironmentVariables</key>
   <dict>
     <key>ANTHROPIC_API_KEY</key>
     <string>__ANTHROPIC_API_KEY__</string>
   </dict>
+  <!--__ENV_END__-->
 
   <key>WorkingDirectory</key>
   <string>__REPO__</string>
 
   <key>RunAtLoad</key>
   <true/>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>6</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
 
   <key>StandardOutPath</key>
   <string>__HOME__/.everydaypassion/open.log</string>

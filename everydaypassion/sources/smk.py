@@ -1,7 +1,8 @@
 """SmkSource — public-domain artwork from SMK, the National Gallery of Denmark.
 
 Keyless API; the search endpoint returns full records filtered server-side to
-public-domain works that carry an image. SMK releases those under CC0, and its
+public-domain works that carry an image. Since 2024 SMK marks those with the
+Public Domain Mark 1.0 (no restrictions — still publishable), and its
 `image_thumbnail` is a ready-to-use IIIF URL (max 1024px) — no per-object probe.
 """
 
@@ -25,6 +26,15 @@ class SmkSourceError(RuntimeError):
     pass
 
 
+# SMK credits unattributed works to "Ubekendt" (Danish: unknown).
+_UNKNOWN = {"ubekendt", "unknown", "anonym"}
+
+
+def _named(record: dict) -> str:
+    name = _first(record.get("artist"))
+    return "" if name.strip().lower() in _UNKNOWN else name
+
+
 def _first(value, key=None):
     if not value:
         return ""
@@ -42,17 +52,19 @@ class SmkSource:
         offset = (seeding.seed_for(f"{date}:smk-page") % self.max_page) * 100
         data = self.http.get_json(SEARCH.format(offset=offset))
         records = data.get("items") or []
-        chosen = pick_record(date, records, seen, lambda r: f"smk-{r['object_number']}", lambda r: r.get("artist"))
+        chosen = pick_record(date, records, seen, lambda r: f"smk-{r['object_number']}", _named)
         if chosen is None:
             raise SmkSourceError("no public-domain artwork found")
+        image = chosen.get("image_thumbnail")
         return Artwork(
             source="SMK — National Gallery of Denmark",
-            license="CC0",
+            license="Public Domain Mark 1.0",
             public_ok=True,
             title=_first(chosen.get("titles"), "title") or "Untitled",
-            artist=_first(chosen.get("artist")) or "Unknown",
+            artist=_named(chosen) or "Unknown",
             date=_first(chosen.get("production_date"), "period"),
             medium=_first(chosen.get("techniques")),
             ref_id=f"smk-{chosen['object_number']}",
-            image_path=cache_image(self.http, self.image_dir, chosen.get("image_thumbnail"), f"smk-{chosen['object_number']}"),
+            image_path=cache_image(self.http, self.image_dir, image, f"smk-{chosen['object_number']}"),
+            image_url=image,
         )

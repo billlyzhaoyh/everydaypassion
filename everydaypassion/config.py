@@ -15,7 +15,11 @@ from .builder import DayBuilder
 from .library import CuratedLibrary
 from .store import PackageStore
 
-# Load a local .env (e.g. ANTHROPIC_API_KEY) once, on import.
+# Load a local .env (e.g. ANTHROPIC_API_KEY) once, on import. load_dotenv() never
+# overrides a variable that already exists, so drop an *empty* key first (older
+# LaunchAgent plists set ANTHROPIC_API_KEY="") — otherwise it would hide .env's key.
+if not os.environ.get("ANTHROPIC_API_KEY"):
+    os.environ.pop("ANTHROPIC_API_KEY", None)
 try:
     from dotenv import load_dotenv
 
@@ -64,13 +68,15 @@ def public_site(base_url: str = "/everydaypassion/") -> SiteConfig:
 
 
 def home() -> Path:
-    return Path(os.environ.get("EVERYDAYPASSION_HOME", Path.home() / ".everydaypassion"))
+    # dotenv doesn't expand "~", so a .env value like ~/.everydaypassion needs it here.
+    env = os.environ.get("EVERYDAYPASSION_HOME")
+    return Path(env).expanduser().resolve() if env else Path.home() / ".everydaypassion"
 
 
 def curated_root() -> Path:
     env = os.environ.get("EVERYDAYPASSION_CURATED")
     if env:
-        return Path(env)
+        return Path(env).expanduser().resolve()
     return Path(__file__).resolve().parent.parent / "data" / "curated"
 
 
@@ -87,17 +93,20 @@ def make_store() -> PackageStore:
 def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
     store = make_store()
     library = CuratedLibrary(curated_root())
-    art_source = poem_source = wiki = reflection = None
+    art_source = poem_source = wiki = reflection = story = music = None
     if online:
         # Imported lazily so the core/offline path needs no network deps.
         from .sources.artic import ArticSource
+        from .sources.commons import CommonsMusicSource
         from .sources.cleveland import ClevelandSource
         from .sources.curated import CuratedModernArt, CuratedModernPoems
         from .sources.met import MetSource
         from .sources.poetry import PoetrySource
         from .sources.pool import SourcePool
         from .sources.reflection import ReflectionWriter
+        from .sources.rijks import RijksSource
         from .sources.smk import SmkSource
+        from .sources.standardebooks import StandardEbooksPoetry, StandardEbooksProse
         from .sources.vam import VamSource
         from .sources.wikipedia import WikipediaClient
 
@@ -115,16 +124,24 @@ def make_builder(online: bool = True, public_only: bool = False) -> DayBuilder:
                 ArticSource(images),
                 ClevelandSource(images),
                 SmkSource(images),
+                RijksSource(images),
                 VamSource(images),  # personal-use only; skips itself in a public build
                 CuratedModernArt(curated, images),
             ],
             "art",
         )
         poem_source = SourcePool(
-            [PoetrySource(taste_gate=taste_gate), CuratedModernPoems(curated)],
+            [
+                PoetrySource(taste_gate=taste_gate),
+                StandardEbooksPoetry(taste_gate=taste_gate),
+                CuratedModernPoems(curated),
+            ],
             "poem",
         )
+        story = StandardEbooksProse()
+        music = CommonsMusicSource()
     return DayBuilder(
         store=store, library=library, met=art_source, poetry=poem_source,
-        wiki=wiki, reflection=reflection, public_only=public_only,
+        wiki=wiki, reflection=reflection, public_only=public_only, story=story,
+        music=music,
     )

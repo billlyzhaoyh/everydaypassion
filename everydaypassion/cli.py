@@ -33,6 +33,11 @@ def cmd_build(args) -> int:
     pkg = builder.ensure(date)
     print(f"{date}: {pkg.artwork.title} — {pkg.artwork.artist}")
     print(f"         poem: {pkg.poem.title} — {pkg.poem.author}")
+    if pkg.story:
+        print(f"         {pkg.story.kind}: {pkg.story.title} — {pkg.story.author} "
+              f"(~{pkg.story.minutes} min)")
+    if pkg.music:
+        print(f"         music: {pkg.music.title} — {pkg.music.artist}")
     print(f"         reflections: artwork={'yes' if pkg.artwork_reflection else 'no'}"
           f" poem={'yes' if pkg.poem_reflection else 'no'}")
     return 0
@@ -42,8 +47,9 @@ def cmd_export(args) -> int:
     from . import static_site
 
     site = config.public_site(args.base_url)
-    warnings = static_site.export(args.out, site, days=args.days, online=not args.offline)
-    print(f"Exported {args.days} day(s) to {args.out} (base {site.base_url})")
+    warnings = static_site.export(args.out, site, days=args.days, online=not args.offline,
+                                  data_dir=args.data, rebuild=args.rebuild)
+    print(f"Exported to {args.out} (base {site.base_url}, data {args.data})")
     for w in warnings:
         print(f"  warning: {w}")
     return 0
@@ -102,9 +108,13 @@ def main(argv=None) -> int:
     sub.add_parser("serve", parents=[common], help="Run the local server.").set_defaults(func=cmd_serve)
 
     p_export = sub.add_parser("export", parents=[common], help="Export the public static site for GitHub Pages.")
-    p_export.add_argument("--out", default="docs", help="Output directory (default: docs).")
+    p_export.add_argument("--out", default="_site", help="Output directory (default: _site).")
+    p_export.add_argument("--data", default="data/public",
+                          help="Published-day data: packages + seen log (default: data/public).")
     p_export.add_argument("--base-url", default="/everydaypassion/", help="Site base path for assets/links.")
     p_export.add_argument("--days", type=int, default=1, help="How many recent days to build (default: today only).")
+    p_export.add_argument("--rebuild", action="store_true",
+                          help="Rebuild days that are already published (normally frozen).")
     p_export.set_defaults(func=cmd_export)
 
     p_open = sub.add_parser("open", parents=[common], help="Open today's morning in the browser (once per day).")

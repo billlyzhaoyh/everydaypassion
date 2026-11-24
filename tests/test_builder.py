@@ -2,7 +2,7 @@ import json
 
 from everydaypassion.builder import DayBuilder
 from everydaypassion.library import CuratedLibrary
-from everydaypassion.models import Artwork, Poem
+from everydaypassion.models import Artwork, Poem, Prose, Track
 from everydaypassion.store import PackageStore
 
 
@@ -175,3 +175,140 @@ def test_retry_recovers_within_budget(tmp_path):
 
     builder, _ = _builder(tmp_path, met=FlakyMet(), poetry=FakePoetry(), retries=2)
     assert builder.ensure("2026-06-19").artwork.title == "Recovered"
+
+
+# ---- degraded days are retried, complete days frozen --------------------
+def test_degraded_package_is_retried_until_complete(tmp_path):
+    met = FakeMet(fail=True)
+    builder, store = _builder(tmp_path, met=met, poetry=FakePoetry(),
+                              wiki=FakeWiki(), reflection=FakeReflection())
+    first = builder.ensure("2026-06-19")  # offline at login: fallback art
+    assert first.artwork.title == "Fallback Artwork"
+    assert first.frozen is False
+
+    met.fail = True
+    assert builder.ensure("2026-06-19").artwork.title == "Fallback Artwork"  # still down: kept
+
+    met.fail = False  # network is back
+    healed = builder.ensure("2026-06-19")
+    assert healed.artwork.title == "Live Artwork"
+    assert healed.frozen is True
+    calls = met.calls
+    builder.ensure("2026-06-19")
+    assert met.calls == calls  # now frozen: read, never rebuilt
+
+
+def test_missing_reflection_is_not_frozen(tmp_path):
+    class DownReflection(FakeReflection):
+        def write(self, artwork, facts):
+            raise RuntimeError("no key")
+
+    builder, _ = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(),
+                          wiki=FakeWiki(), reflection=DownReflection())
+    assert builder.ensure("2026-06-19").frozen is False
+
+
+def test_fully_offline_build_is_still_frozen(tmp_path):
+    builder, _ = _builder(tmp_path)  # --offline: nothing configured, nothing failed
+    assert builder.ensure("2026-06-19").frozen is True
+
+
+def test_concurrent_first_requests_build_once(tmp_path):
+    import threading
+    import time
+
+    class SlowMet(FakeMet):
+        def fetch_artwork(self, date, seen, public_only):
+            time.sleep(0.05)
+            return super().fetch_artwork(date, seen, public_only)
+
+    met = SlowMet()
+    builder, _ = _builder(tmp_path, met=met, poetry=FakePoetry())
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(builder.ensure("2026-06-19")))
+               for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert met.calls == 1
+    assert results[0].to_dict() == results[1].to_dict()
+
+
+def test_curator_note_licence_is_carried_to_the_reflection(tmp_path):
+    note = "A long museum description. " * 6
+
+    class NoteArt:
+        def fetch_artwork(self, date, seen, public_only):
+            return Artwork("Art Institute of Chicago", "CC0", True, "T", "A", "", "", "artic-1",
+                           curator_note=note, curator_note_license="CC BY 4.0",
+                           curator_note_license_url="https://creativecommons.org/licenses/by/4.0/")
+
+    builder, _ = _builder(tmp_path, met=NoteArt(), poetry=FakePoetry(),
+                          wiki=FakeWiki(), reflection=FakeReflection())
+    refl = builder.ensure("2026-06-19").artwork_reflection
+    assert refl.license == "CC BY 4.0"
+
+
+# ---- the optional story slot ---------------------------------------------
+class FakeStory:
+    def __init__(self, fail=False):
+        self.fail = fail
+
+    def fetch_prose(self, date, seen, public_only):
+        if self.fail:
+            raise RuntimeError("GitHub is down")
+        return Prose("Standard Ebooks", "Public domain", True, "Hands", "Sherwood Anderson",
+                     paragraphs=["One.", "Two."], word_count=1200)
+
+
+class StoryWiki(FakeWiki):
+    def facts_for_author(self, item):
+        return {"term": item.author, "summary": "Author facts."}
+
+
+class StoryReflection(FakeReflection):
+    def write_prose(self, prose, facts):
+        return f"A note on {prose.title}."
+
+
+def test_story_slot_is_built_reflected_and_marked_seen(tmp_path):
+    builder, store = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(), wiki=StoryWiki(),
+                              reflection=StoryReflection(), story=FakeStory())
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.story.title == "Hands"
+    assert pkg.story_reflection.text == "A note on Hands."
+    assert pkg.frozen is True
+    assert "Sherwood Anderson::Hands" in store.seen_ids()
+    assert store.read("2026-06-19").story.title == "Hands"  # round-trips through JSON
+
+
+def test_failed_story_leaves_the_slot_empty_and_the_day_unfrozen(tmp_path):
+    builder, _ = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(), story=FakeStory(fail=True))
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.story is None and pkg.frozen is False
+
+
+def test_packages_without_a_story_still_load(tmp_path):
+    builder, store = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry())
+    builder.ensure("2026-06-19")
+    assert store.read("2026-06-19").story is None
+
+
+
+def test_music_slot_is_built_reflected_and_round_trips(tmp_path):
+    class FakeMusic:
+        def fetch_track(self, date, seen, public_only):
+            return Track("Wikimedia Commons", "CC0", True, "Aria", "JS Bach and Kimiko Ishizaka",
+                         "https://upload.wikimedia.org/a.mp3", "commons-1")
+
+    class MusicReflection(StoryReflection):
+        def write_music(self, track, facts):
+            return f"A note on {track.title} ({facts['term']})."
+
+    builder, store = _builder(tmp_path, met=FakeMet(), poetry=FakePoetry(), wiki=StoryWiki(),
+                              reflection=MusicReflection(), music=FakeMusic())
+    pkg = builder.ensure("2026-06-19")
+    assert pkg.music_reflection.text == "A note on Aria (JS Bach)."  # composer from the credit
+    assert pkg.frozen is True and "commons-1" in store.seen_ids()
+    assert store.read("2026-06-19").music.audio_url == "https://upload.wikimedia.org/a.mp3"
