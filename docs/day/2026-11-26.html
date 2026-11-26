@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lucien Pissarro · everydaypassion</title>
+  <link rel="stylesheet" href="/everydaypassion/static/app.css">
+  <script>
+    // Apply a pinned theme before first paint to avoid a flash.
+    (function () {
+      try {
+        var t = localStorage.getItem("edp-theme");
+        if (t) document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <span><a href="/everydaypassion/">everydaypassion</a></span>
+      <span class="links">
+        <a href="/everydaypassion/archive.html">past mornings</a>
+        
+        <button class="theme-toggle" id="theme-toggle" type="button">theme</button>
+      </span>
+    </div>
+    
+<div class="frame">
+  
+    <img src="/everydaypassion/images/cma-120340.jpg" alt="Lucien Pissarro by Charles Hasslewood Shannon">
+  
+</div>
+
+<div class="caption">
+  <h1 class="title">Lucien Pissarro</h1>
+  <p class="meta">
+    Charles Hasslewood Shannon · 1895 · lithograph<br>
+    Cleveland Museum of Art · CC0
+  </p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>This 1895 lithograph by Charles Hasslewood Shannon (British, 1863–1937) portrays Lucien Pissarro, a French-born landscape painter, printmaker, and wood engraver. Pissarro was the eldest son of the Impressionist Camille Pissarro and had settled in Britain in 1890, where his path crossed with artists like Shannon.</p>
+    
+      <p>Pissarro&#39;s own work drew on Impressionist and Neo-Impressionist techniques, and he exhibited with the Belgian avant-garde group Les XX. He was also known for his activity as a designer and printer of fine books.</p>
+    
+      <p>The print came to the Cleveland Museum of Art as a twenty-fifth anniversary gift from the Mr. and Mrs. Lewis B. Williams Collection in 1941.</p>
+    
+    
+      <p class="src">Background drawn from Cleveland Museum of Art &amp; Wikipedia</p>
+    
+  </div>
+</details>
+
+
+
+<div class="rule"></div>
+
+<div class="poem">
+  <p class="label">Today's poem</p>
+  <h2>Nurse&#39;s Song</h2>
+  <p class="verse">When the voices of children are heard on the green,
+  And laughing is heard on the hill,
+My heart is at rest within my breast,
+  And everything else is still.
+&#34;Then come home, my children, the sun is gone down,
+  And the dews of night arise;
+Come, come, leave off play, and let us away,
+  Till the morning appears in the skies.&#34;
+
+&#34;No, no, let us play, for it is yet day,
+  And we cannot go to sleep;
+Besides, in the sky the little birds fly,
+  And the hills are all covered with sheep.&#34;
+&#34;Well, well, go and play till the light fades away,
+  And then go home to bed.&#34;
+The little ones leaped, and shouted, and laughed,
+  And all the hills echoed.</p>
+  <p class="by">William Blake · Public domain</p>
+</div>
+
+
+
+<details>
+  <summary><span class="mark">✦</span> Read about this</summary>
+  <div class="reflection-body">
+    
+      <p>William Blake (1757–1827) was an English poet, painter and printmaker who went largely unrecognised in his lifetime but is now regarded as a seminal figure of the Romantic Age in both poetry and visual art. He lived nearly all his life in London, producing a symbolically rich body of work that embraced the imagination as &#34;the body of God&#34; or &#34;human existence itself.&#34; The critic Northrop Frye called his so-called &#34;prophetic works&#34; the least read body of poetry in the English language relative to its merits.</p>
+    
+      <p>&#34;Nurse&#39;s Song&#34; belongs to Blake&#39;s more accessible side. Written in ballad-like quatrains with a light internal rhyme, it stages a short exchange between a nurse and the children in her care. She calls them home as the sun sets, they ask to keep playing, and she relents. The poem sets the adult instinct to end the day against the children&#39;s desire to prolong it, closing with the children&#39;s shouts echoing across the hills.</p>
+    
+    
+      <p class="src">Background drawn from PoetryDB &amp; Wikipedia</p>
+    
+  </div>
+</details>
+
+
+
+<div class="chrome">
+  <span>Thursday · 26 November 2026</span>
+  
+</div>
+
+
+
+  </div>
+  <script>
+    (function () {
+      var btn = document.getElementById("theme-toggle");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme");
+        // No pin yet → follow whatever the OS shows, then flip to the opposite.
+        var isDark = cur
+          ? cur === "dark"
+          : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var next = isDark ? "paper" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("edp-theme", next); } catch (e) {}
+      });
+    })();
+  </script>
+</body>
+</html>
